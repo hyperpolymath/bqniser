@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+= Bqniser
+Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+:toc: left
+:icons: font
+
+== What Is This?
+
+BQNiser detects array operation patterns in existing code and rewrites
+them as **optimised BQN array primitives** — expressing in one line what
+takes 50 in Python.
+
+APL/BQN array languages achieve extraordinary data processing performance
+through vectorised primitives. BQNiser brings this to existing codebases.
+
+== How It Works
+
+Point BQNiser at your codebase (or describe patterns in `bqniser.toml`). BQNiser:
+
+1. Analyses loops, comprehensions, and array operations via AST
+2. Identifies patterns expressible as BQN primitives (each, reduce, scan, etc.)
+3. Generates optimised BQN implementations
+4. Creates a Zig FFI bridge for calling BQN from your code
+
+== Key Value
+
+* **Array operations at native speed** — vectorised primitives
+* **Pattern detection** — finds optimisable code automatically
+* **Gradual adoption** — replace hot loops one at a time
+
+== Architecture
+
+Follows the hyperpolymath -iser pattern (same as https://github.com/hyperpolymath/chapeliser[Chapeliser]):
+
+* **Manifest** (`bqniser.toml`) — describe WHAT you want
+* **Idris2 ABI** (`src/abi/`) — formal proofs of interface correctness
+* **Zig FFI** (`ffi/zig/`) — C-ABI bridge to target language runtime
+* **Codegen** (`src/codegen/`) — generates target language wrapper code
+* **Rust CLI** — parses manifest, validates, generates, builds, runs
+
+User writes zero target language code. Bqniser generates everything.
+
+Part of the https://github.com/hyperpolymath/iseriser[-iser family] of acceleration frameworks.
+
+== Status
+
+**Pre-alpha.** Architecture defined, scaffolding in place, codegen pending.
+
+== License
+
+SPDX-License-Identifier: PMPL-1.0-or-later
