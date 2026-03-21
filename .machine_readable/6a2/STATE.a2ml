@@ -11,29 +11,35 @@
   (project-context
     (name "bqniser")
     (description "Detect array computation patterns in code and rewrite as optimised BQN primitives")
-    (target-language "BQN (via CBQN runtime)")
-    (status "scaffold — architecture defined, ABI types bespoke, codegen pending")
+    (status "phase-1-complete")
     (priority "—")
     (ecosystem "-iser family (https://github.com/hyperpolymath/iseriser)"))
 
   (current-position
-    (phase "scaffold-with-bespoke-abi")
-    (completion-percentage 10)
-    (milestone "Bespoke Idris2 ABI types (ArrayRank, BQNPrimitive, Train, Modifier, UnderCombinator), Zig FFI bridge stubs for CBQN C API, CLI scaffolded"))
+    (phase "phase-1-complete")
+    (completion-percentage 45)
+    (milestone "Phase 1: scaffold, bespoke ABI/FFI, CLI, manifest parser, codegen stubs, RSR compliance, documentation — all complete"))
 
   (route-to-mvp
-    (step 1 "Pattern detection engine: AST analysis of Rust source for array patterns")
-    (step 2 "BQN codegen: emit BQN expressions using trains, under, modifiers")
-    (step 3 "CBQN integration: link Zig FFI bridge to libcbqn for in-process eval")
-    (step 4 "Idris2 equivalence proofs: prove each rewrite preserves semantics")
-    (step 5 "Numeric array round-trip: Rust Vec<f64> → BQN array → Rust Vec<f64>")
-    (step 6 "End-to-end example: detect loop, rewrite as BQN, benchmark speedup"))
+    (step 1 "DONE — Project scaffold from rsr-template-repo")
+    (step 2 "DONE — Bespoke Idris2 ABI type definitions")
+    (step 3 "DONE — Bespoke Zig FFI implementation stubs")
+    (step 4 "DONE — CLI with subcommands (init, validate, generate, build, run, info)")
+    (step 5 "DONE — Manifest parser (bqniser.toml)")
+    (step 6 "DONE — Codegen engine stubs")
+    (step 7 "DONE — RSR compliance (17 workflows, governance, contractiles)")
+    (step 8 "DONE — Bespoke documentation (README, ROADMAP, CONTRIBUTING, CHANGELOG)")
+    (step 9 "Implement core domain logic (source analysis, pattern detection)")
+    (step 10 "Implement codegen passes (target-language-specific output)")
+    (step 11 "Write Idris2 formal proofs for domain invariants")
+    (step 12 "End-to-end integration tests with real inputs")
+    (step 13 "BoJ cartridge and PanLL panel integration")
+    (step 14 "Performance benchmarks and optimisation"))
 
   (blockers-and-issues
-    (blocker "CBQN not yet linked as system library in Zig build")
-    (note "All FFI functions are correctly stubbed and return safe defaults"))
+    (none "Phase 1 complete — no blockers. Phase 2 requires domain logic implementation."))
 
   (critical-next-actions
-    (action "Implement pattern detection for common loop/map/fold patterns")
-    (action "Link CBQN runtime in Zig FFI build (lib.linkSystemLibrary(\"cbqn\"))")
-    (action "Write first BQN codegen pass: simple fold → ´ rewrite")))
+    (action "Implement core domain logic in src/core/")
+    (action "Write first end-to-end example with real input")
+    (action "Begin Idris2 formal proofs for domain-specific invariants")))
