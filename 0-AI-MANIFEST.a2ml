@@ -1,19 +1,27 @@
-# ⚠️ STOP - CRITICAL READING REQUIRED
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+
+# STOP - CRITICAL READING REQUIRED
 
 **THIS FILE MUST BE READ FIRST BY ALL AI AGENTS**
 
 ## WHAT IS THIS?
 
-This is the AI manifest for **[YOUR-REPO-NAME]**. It declares:
-- Canonical file locations (where things MUST be, and nowhere else)
-- Critical invariants (rules that must NEVER be violated)
-- Repository structure and organization
+This is the AI manifest for **bqniser** — a tool that detects array computation
+patterns in existing code (loops, maps, folds) and rewrites them as optimised
+BQN array primitives via the CBQN runtime.  Part of the hyperpolymath -iser
+family (https://github.com/hyperpolymath/iseriser).
+
+BQN (by Marshall Lochbaum) is an array language with first-class functions,
+trains, under/structural-under combinators, rank polymorphism, and leading-axis
+theory.  BQNiser generates BQN code and a Zig FFI bridge to CBQN so users get
+10-100x array operation speedups without learning BQN.
 
 ## CANONICAL LOCATIONS (UNIVERSAL RULE)
 
 ### Machine-Readable Metadata: `.machine_readable/` ONLY
 
-These 6 a2ml files MUST exist in `.machine_readable/` directory ONLY:
+These 6 a2ml files MUST exist in `.machine_readable/6a2/` directory ONLY:
 1. **STATE.a2ml** - Project state, progress, blockers
 2. **META.a2ml** - Architecture decisions, governance
 3. **ECOSYSTEM.a2ml** - Position in ecosystem, relationships
@@ -55,7 +63,7 @@ Policy enforcement contracts (k9, dust, lust, must, trust).
 ### AI Configuration & Guides: `.machine_readable/ai/` ONLY
 
 - `AI.a2ml` - Language-specific or LLM-specific patterns
-- `PLACEHOLDERS.md` - Bootstrap guide
+- `PLACEHOLDERS.adoc` - Bootstrap guide
 
 ### Community & Forge Metadata: `.github/` ONLY
 
@@ -70,6 +78,49 @@ Policy enforcement contracts (k9, dust, lust, must, trust).
 
 - `0-AI-MANIFEST.a2ml` - THIS FILE (universal entry point)
 
+## REPOSITORY STRUCTURE
+
+This repo follows the **Dual-Track** architecture:
+
+```
+bqniser/
+├── 0-AI-MANIFEST.a2ml         # THIS FILE (start here)
+├── README.adoc                 # What bqniser does, architecture, BQN primer
+├── ROADMAP.adoc                # Phase 0-6 development plan
+├── CONTRIBUTING.adoc           # Contribution guide
+├── Cargo.toml                  # Rust CLI dependencies
+├── Justfile                    # Task runner
+├── Containerfile               # OCI build (Chainguard base)
+├── LICENSE                     # PMPL-1.0-or-later
+├── src/
+│   ├── main.rs                 # CLI entry (init, validate, generate, build, run)
+│   ├── lib.rs                  # Library API
+│   ├── manifest/               # bqniser.toml parser and validator
+│   ├── codegen/                # BQN expression emitter + FFI glue generator
+│   ├── core/                   # Pattern detection engine (AST analysis)
+│   ├── definitions/            # BQN primitive definitions and semantics
+│   ├── bridges/                # CBQN runtime bridge
+│   └── interface/              # Verified Interface Seams
+│       ├── abi/                # Idris2 ABI — BQN types, array layout, CBQN FFI
+│       │   ├── Types.idr       # ArrayRank, BQNPrimitive, Train, Modifier, Under
+│       │   ├── Layout.idr      # BQN array memory layout (header+shape+data)
+│       │   └── Foreign.idr     # CBQN C API declarations (eval, call, read, write)
+│       ├── ffi/                # Zig FFI — CBQN embedding bridge
+│       │   ├── build.zig       # Build config (shared + static libbqniser)
+│       │   ├── src/main.zig    # CBQN init/eval/call/read/write/free
+│       │   └── test/           # ABI compliance integration tests
+│       └── generated/          # Auto-generated C headers from Idris2
+├── tests/                      # Rust integration tests
+├── examples/                   # Example bqniser.toml manifests
+├── verification/               # Formal verification artifacts
+├── container/                  # Stapeln container ecosystem
+├── docs/
+│   ├── architecture/           # TOPOLOGY.md, THREAT-MODEL.adoc
+│   ├── theory/                 # BQN array theory, leading-axis, trains
+│   └── practice/               # User guides, pattern catalogue
+└── .machine_readable/          # ALL machine-readable metadata (6a2, policies, etc.)
+```
+
 ## CORE INVARIANTS
 
 1. **No state file duplication** - Root must NOT contain STATE.a2ml, META.a2ml, etc.
@@ -80,42 +131,15 @@ Policy enforcement contracts (k9, dust, lust, must, trust).
 6. **Container images** - MUST use Chainguard base (`cgr.dev/chainguard/wolfi-base:latest` or `cgr.dev/chainguard/static:latest`)
 7. **Container runtime** - Podman, never Docker. Files are `Containerfile`, never `Dockerfile`
 8. **Container orchestration** - `selur-compose`, never `docker-compose`
-
-## REPOSITORY STRUCTURE
-
-This repo follows the **Dual-Track** architecture:
-
-```
-[YOUR-REPO-NAME]/
-├── 0-AI-MANIFEST.a2ml         # THIS FILE (start here)
-├── README.adoc                 # High-level orientation (Rich Human)
-├── ROADMAP.adoc                # Future direction
-├── CONTRIBUTING.adoc           # Human contribution guide
-├── GOVERNANCE.adoc             # Decision-making model
-├── Justfile                    # Task runner
-├── Containerfile               # OCI build
-├── LICENSE                     # Primary license
-├── src/                        # Source code
-│   └── interface/              # Verified Interface Seams
-│       ├── abi/                # Idris2 ABI (The Spec)
-│       ├── ffi/                # Zig FFI (The Bridge)
-│       └── generated/          # C Headers (The Result)
-├── container/                  # Stapeln container ecosystem
-├── docs/                       # Technical depths
-│   ├── attribution/            # Citations, owners, maintainers (adoc)
-│   ├── architecture/           # Topology, diagrams
-│   ├── theory/                 # Domain theory
-│   └── practice/               # Manuals
-├── docs/legal/                  # Legal exhibits and full texts
-└── .machine_readable/          # ALL machine-readable metadata
-```
+9. **BQN rewrites require proofs** - No BQN codegen without Idris2 equivalence proof
+10. **CBQN access via Zig only** - All CBQN C API calls go through the Zig FFI bridge
 
 ## SESSION STARTUP CHECKLIST
 
-✅ Read THIS file (0-AI-MANIFEST.a2ml) first
-✅ Understand canonical location: `.machine_readable/`
-✅ State understanding of canonical locations
+Read THIS file (0-AI-MANIFEST.a2ml) first
+Understand canonical location: `.machine_readable/`
+State understanding of canonical locations
 
 ## ATTESTATION PROOF
 
-**"I have read the AI manifest. All machine-readable content (state files, anchors, policies, bot directives, contractiles, AI guides) is located in `.machine_readable/` ONLY, and community metadata is in `.github/`. I will not create duplicate files in the root directory."**
+**"I have read the AI manifest for bqniser. All machine-readable content (state files, anchors, policies, bot directives, contractiles, AI guides) is located in `.machine_readable/` ONLY, and community metadata is in `.github/`. I will not create duplicate files in the root directory. BQN rewrites require Idris2 equivalence proofs. CBQN access is via Zig FFI only."**

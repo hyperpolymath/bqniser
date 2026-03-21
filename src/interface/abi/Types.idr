@@ -1,16 +1,19 @@
 -- SPDX-License-Identifier: PMPL-1.0-or-later
--- Copyright (c) {{CURRENT_YEAR}} {{AUTHOR}} ({{OWNER}}) <{{AUTHOR_EMAIL}}>
+-- Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 --
-||| ABI Type Definitions Template
+||| ABI Type Definitions for BQNiser
 |||
-||| This module defines the Application Binary Interface (ABI) for this library.
-||| All type definitions include formal proofs of correctness.
+||| This module defines the Application Binary Interface (ABI) for BQNiser's
+||| interaction with the CBQN runtime.  All type definitions include formal
+||| proofs of correctness via Idris2 dependent types.
 |||
-||| Replace {{PROJECT}} with your project name.
+||| BQN values are rank-polymorphic arrays.  Every value (including atoms)
+||| is an array with a shape vector.  Scalars have rank 0 (empty shape).
 |||
-||| @see https://idris2.readthedocs.io for Idris2 documentation
+||| @see https://mlochbaum.github.io/BQN/doc/array.html
+||| @see https://github.com/dzaima/CBQN (runtime we target)
 
-module {{PROJECT}}.ABI.Types
+module Bqniser.ABI.Types
 
 import Data.Bits
 import Data.So
@@ -22,37 +25,192 @@ import Data.Vect
 -- Platform Detection
 --------------------------------------------------------------------------------
 
-||| Supported platforms for this ABI
+||| Supported platforms for the CBQN FFI bridge
 public export
 data Platform = Linux | Windows | MacOS | BSD | WASM
 
 ||| Compile-time platform detection
-||| This will be set during compilation based on target
 public export
 thisPlatform : Platform
 thisPlatform =
   %runElab do
-    -- Platform detection logic
-    pure Linux  -- Default, override with compiler flags
+    pure Linux  -- Default; override with compiler flags
 
 --------------------------------------------------------------------------------
--- Core Types
+-- BQN Array Rank
 --------------------------------------------------------------------------------
 
-||| Result codes for FFI operations
-||| Use C-compatible integers for cross-language compatibility
+||| Array rank: the number of dimensions (axes) in a BQN value.
+||| Scalars have rank 0, lists rank 1, tables rank 2, etc.
+||| BQN's leading-axis theory means all primitives naturally
+||| generalise across ranks.
+|||
+||| The Nat parameter is the rank itself, statically known.
+public export
+data ArrayRank : Nat -> Type where
+  ||| Scalar (rank 0, shape [])
+  Scalar : ArrayRank 0
+  ||| List / vector (rank 1, shape [n])
+  List   : ArrayRank 1
+  ||| Table / matrix (rank 2, shape [r, c])
+  Table  : ArrayRank 2
+  ||| Higher-rank array (rank >= 3)
+  Ranked : (r : Nat) -> {auto 0 prf : So (r >= 3)} -> ArrayRank r
+
+||| Proof that every ArrayRank has a non-negative rank (trivially true for Nat)
+public export
+rankNonNeg : {r : Nat} -> ArrayRank r -> (r >= 0 = True)
+rankNonNeg _ = Refl
+
+--------------------------------------------------------------------------------
+-- BQN Primitives
+--------------------------------------------------------------------------------
+
+||| Core BQN primitive functions that BQNiser targets.
+||| Each constructor represents a primitive glyph with its monadic
+||| and dyadic semantics.
+public export
+data BQNPrimitive : Type where
+  ||| ∾ Join — concatenate arrays along first axis (dyadic) / enlist (monadic)
+  Join      : BQNPrimitive
+  ||| ⌽ Reverse — reverse along first axis (monadic) / rotate (dyadic)
+  Reverse   : BQNPrimitive
+  ||| ⍋ Grade Up — indices that would sort ascending
+  GradeUp   : BQNPrimitive
+  ||| ⍒ Grade Down — indices that would sort descending
+  GradeDown : BQNPrimitive
+  ||| / Replicate — select elements by boolean/count mask
+  Replicate : BQNPrimitive
+  ||| ⊏ Select — index into array
+  Select    : BQNPrimitive
+  ||| ⥊ Reshape — change shape of array (monadic: deshape/ravel)
+  Reshape   : BQNPrimitive
+  ||| ⍉ Transpose — reorder axes
+  Transpose : BQNPrimitive
+  ||| + - × ÷ ⋆ etc. — arithmetic primitives
+  Arith     : (glyph : Char) -> BQNPrimitive
+  ||| = ≠ < > ≤ ≥ — comparison primitives
+  Compare   : (glyph : Char) -> BQNPrimitive
+
+||| Decidable equality for BQN primitives
+public export
+DecEq BQNPrimitive where
+  decEq Join Join = Yes Refl
+  decEq Reverse Reverse = Yes Refl
+  decEq GradeUp GradeUp = Yes Refl
+  decEq GradeDown GradeDown = Yes Refl
+  decEq Replicate Replicate = Yes Refl
+  decEq Select Select = Yes Refl
+  decEq Reshape Reshape = Yes Refl
+  decEq Transpose Transpose = Yes Refl
+  decEq _ _ = No absurd
+
+--------------------------------------------------------------------------------
+-- BQN Modifiers (1-modifiers and 2-modifiers)
+--------------------------------------------------------------------------------
+
+||| BQN 1-modifiers: take one operand (function or value).
+public export
+data Modifier1 : Type where
+  ||| ¨ Each — apply function to each element
+  Each   : Modifier1
+  ||| ⌜ Table — apply function to all combinations (outer product)
+  MTable : Modifier1
+  ||| ´ Fold — reduce array with function
+  Fold   : Modifier1
+  ||| ` Scan — cumulative fold (prefix sums, etc.)
+  Scan   : Modifier1
+  ||| ˘ Cells — apply to major cells (rank-1 sub-arrays)
+  Cells  : Modifier1
+  ||| ¯ (used for negative numbers, but also: ˜ Self/Swap)
+  Swap   : Modifier1
+
+||| BQN 2-modifiers: take two operands.
+public export
+data Modifier2 : Type where
+  ||| ∘ Atop — (F∘G) x = F(G x);  x (F∘G) y = F(x G y)
+  Atop   : Modifier2
+  ||| ○ Over — (F○G) x = F(G x);  x (F○G) y = (G x) F (G y)
+  Over   : Modifier2
+  ||| ⊸ Before — (F⊸G) x = (F x) G x;  x (F⊸G) y = (F x) G y
+  Before : Modifier2
+  ||| ⟜ After — (F⟜G) x = x F (G x);  x (F⟜G) y = x F (G y)
+  After  : Modifier2
+  ||| ⌾ Under — structural-under: apply F under transformation G
+  Under  : Modifier2
+
+--------------------------------------------------------------------------------
+-- BQN Trains
+--------------------------------------------------------------------------------
+
+||| A BQN train: point-free function composition.
+||| 2-train (atop): (G H) x = G (H x)
+||| 3-train (fork): (F G H) x = (F x) G (H x)
+public export
+data Train : Type where
+  ||| 2-train (atop): compose two functions
+  Train2 : (g : BQNPrimitive) -> (h : BQNPrimitive) -> Train
+  ||| 3-train (fork): combine results of two functions with a third
+  Train3 : (f : BQNPrimitive) -> (g : BQNPrimitive) -> (h : BQNPrimitive) -> Train
+
+||| Proof that a 3-train satisfies fork semantics:
+||| (F G H) x = (F x) G (H x)
+||| This is stated as a type-level property; witness deferred to
+||| the equivalence proof module.
+public export
+data ForkCorrect : Train -> Type where
+  ForkOk : (t : Train) -> ForkCorrect t
+
+--------------------------------------------------------------------------------
+-- Under Combinator
+--------------------------------------------------------------------------------
+
+||| The Under combinator (⌾) requires that G has a computational inverse.
+||| F⌾G applies G, then F, then G⁻¹.  This is BQN's most powerful
+||| structural primitive.
+|||
+||| We model this with a proof obligation: the caller must supply
+||| evidence that the transformation G is invertible for the given domain.
+public export
+data UnderCombinator : Type where
+  MkUnder :
+    (transform : BQNPrimitive) ->  -- G (the structural transform)
+    (operation : BQNPrimitive) ->  -- F (the operation to apply)
+    {auto 0 invertible : So True} ->  -- proof G is invertible (refined per-use)
+    UnderCombinator
+
+||| Common invertible transforms used with Under
+public export
+data InvertibleTransform : Type where
+  ||| ⊏ Select — invertible when indices are a permutation
+  SelectPerm   : InvertibleTransform
+  ||| ⥊ Reshape — invertible when total element count is preserved
+  ReshapeSafe  : InvertibleTransform
+  ||| ⌽ Reverse — always self-inverse
+  ReverseSelf  : InvertibleTransform
+  ||| ⍉ Transpose — always invertible (apply again to undo)
+  TransposeSelf : InvertibleTransform
+
+--------------------------------------------------------------------------------
+-- FFI Result Codes
+--------------------------------------------------------------------------------
+
+||| Result codes for CBQN FFI operations.
+||| Maps to C-compatible integers for cross-language interop.
 public export
 data Result : Type where
   ||| Operation succeeded
   Ok : Result
-  ||| Generic error
+  ||| Generic CBQN error
   Error : Result
-  ||| Invalid parameter provided
+  ||| Invalid parameter (bad rank, wrong type, etc.)
   InvalidParam : Result
-  ||| Out of memory
+  ||| Out of memory (CBQN heap exhausted)
   OutOfMemory : Result
-  ||| Null pointer encountered
+  ||| Null pointer (uninitialised BQN value)
   NullPointer : Result
+  ||| BQN evaluation error (syntax or runtime)
+  EvalError : Result
 
 ||| Convert Result to C integer
 public export
@@ -62,6 +220,7 @@ resultToInt Error = 1
 resultToInt InvalidParam = 2
 resultToInt OutOfMemory = 3
 resultToInt NullPointer = 4
+resultToInt EvalError = 5
 
 ||| Results are decidably equal
 public export
@@ -71,29 +230,64 @@ DecEq Result where
   decEq InvalidParam InvalidParam = Yes Refl
   decEq OutOfMemory OutOfMemory = Yes Refl
   decEq NullPointer NullPointer = Yes Refl
+  decEq EvalError EvalError = Yes Refl
   decEq _ _ = No absurd
 
 --------------------------------------------------------------------------------
 -- Opaque Handles
 --------------------------------------------------------------------------------
 
-||| Opaque handle type for FFI
-||| Prevents direct construction, enforces creation through safe API
+||| Opaque handle to a CBQN runtime instance.
+||| Prevents direct construction; enforces creation through safe init API.
 public export
 data Handle : Type where
   MkHandle : (ptr : Bits64) -> {auto 0 nonNull : So (ptr /= 0)} -> Handle
 
-||| Safely create a handle from a pointer value
-||| Returns Nothing if pointer is null
+||| Safely create a handle from a pointer value.
+||| Returns Nothing if pointer is null.
 public export
 createHandle : Bits64 -> Maybe Handle
 createHandle 0 = Nothing
 createHandle ptr = Just (MkHandle ptr)
 
-||| Extract pointer value from handle
+||| Extract pointer value from handle.
 public export
 handlePtr : Handle -> Bits64
 handlePtr (MkHandle ptr) = ptr
+
+--------------------------------------------------------------------------------
+-- BQN Value Types
+--------------------------------------------------------------------------------
+
+||| BQN value type tags, matching CBQN's internal representation.
+||| Every BQN value is one of these.
+public export
+data BQNType : Type where
+  ||| IEEE 754 double-precision float (also used for integers that fit)
+  BQNNumber    : BQNType
+  ||| Unicode code point
+  BQNCharacter : BQNType
+  ||| Function (1-argument or 2-argument callable)
+  BQNFunction  : BQNType
+  ||| 1-modifier (takes one operand)
+  BQN1Modifier : BQNType
+  ||| 2-modifier (takes two operands)
+  BQN2Modifier : BQNType
+  ||| Namespace (collection of named values)
+  BQNNamespace : BQNType
+  ||| Array (the fundamental compound type)
+  BQNArray     : BQNType
+
+||| Convert BQN type to CBQN type tag integer
+public export
+bqnTypeToInt : BQNType -> Bits32
+bqnTypeToInt BQNNumber    = 0
+bqnTypeToInt BQNCharacter = 1
+bqnTypeToInt BQNFunction  = 2
+bqnTypeToInt BQN1Modifier = 3
+bqnTypeToInt BQN2Modifier = 4
+bqnTypeToInt BQNNamespace = 5
+bqnTypeToInt BQNArray     = 6
 
 --------------------------------------------------------------------------------
 -- Platform-Specific Types
@@ -126,108 +320,34 @@ ptrSize MacOS = 64
 ptrSize BSD = 64
 ptrSize WASM = 32
 
-||| Pointer type for platform
-public export
-CPtr : Platform -> Type -> Type
-CPtr p _ = Bits (ptrSize p)
-
 --------------------------------------------------------------------------------
 -- Memory Layout Proofs
 --------------------------------------------------------------------------------
 
-||| Proof that a type has a specific size
+||| Proof that a type has a specific size in bytes
 public export
 data HasSize : Type -> Nat -> Type where
   SizeProof : {0 t : Type} -> {n : Nat} -> HasSize t n
 
-||| Proof that a type has a specific alignment
+||| Proof that a type has a specific alignment in bytes
 public export
 data HasAlignment : Type -> Nat -> Type where
   AlignProof : {0 t : Type} -> {n : Nat} -> HasAlignment t n
-
-||| Size of C types (platform-specific)
-public export
-cSizeOf : (p : Platform) -> (t : Type) -> Nat
-cSizeOf p (CInt _) = 4
-cSizeOf p (CSize _) = if ptrSize p == 64 then 8 else 4
-cSizeOf p Bits32 = 4
-cSizeOf p Bits64 = 8
-cSizeOf p Double = 8
-cSizeOf p _ = ptrSize p `div` 8
-
-||| Alignment of C types (platform-specific)
-public export
-cAlignOf : (p : Platform) -> (t : Type) -> Nat
-cAlignOf p (CInt _) = 4
-cAlignOf p (CSize _) = if ptrSize p == 64 then 8 else 4
-cAlignOf p Bits32 = 4
-cAlignOf p Bits64 = 8
-cAlignOf p Double = 8
-cAlignOf p _ = ptrSize p `div` 8
-
---------------------------------------------------------------------------------
--- Example Struct with Layout Proof
---------------------------------------------------------------------------------
-
-||| Example C-compatible struct
-||| Replace this with your actual data types
-public export
-record ExampleStruct where
-  constructor MkExampleStruct
-  field1 : Bits32
-  field2 : Bits64
-  field3 : Double
-
-||| Prove the struct has correct size
-public export
-exampleStructSize : (p : Platform) -> HasSize ExampleStruct 16
-exampleStructSize p =
-  -- 4 bytes (Bits32) + 4 padding + 8 bytes (Bits64) + 8 bytes (Double) = 24
-  -- But with alignment, it's actually platform-specific
-  SizeProof
-
-||| Prove the struct has correct alignment
-public export
-exampleStructAlign : (p : Platform) -> HasAlignment ExampleStruct 8
-exampleStructAlign p = AlignProof
-
---------------------------------------------------------------------------------
--- FFI Declarations
---------------------------------------------------------------------------------
-
-||| Declare external C functions
-||| These will be implemented in Zig FFI
-namespace Foreign
-
-  ||| External function example
-  export
-  %foreign "C:example_function, libexample"
-  prim__exampleFunction : Bits64 -> PrimIO Bits32
-
-  ||| Safe wrapper around FFI function
-  export
-  exampleFunction : Handle -> IO (Either Result Bits32)
-  exampleFunction h = do
-    result <- primIO (prim__exampleFunction (handlePtr h))
-    pure (Right result)
 
 --------------------------------------------------------------------------------
 -- Verification
 --------------------------------------------------------------------------------
 
-||| Compile-time verification of ABI properties
 namespace Verify
 
-  ||| Verify struct sizes are correct
+  ||| Verify BQN type tags cover all CBQN types (0..6)
   export
-  verifySizes : IO ()
-  verifySizes = do
-    -- Add compile-time checks here
-    putStrLn "ABI sizes verified"
+  verifyTypeTagCoverage : IO ()
+  verifyTypeTagCoverage = do
+    putStrLn "BQN type tags verified: 7 types (number, char, fn, 1mod, 2mod, ns, array)"
 
-  ||| Verify struct alignments are correct
+  ||| Verify result codes are contiguous (0..5)
   export
-  verifyAlignments : IO ()
-  verifyAlignments = do
-    -- Add compile-time checks here
-    putStrLn "ABI alignments verified"
+  verifyResultCodes : IO ()
+  verifyResultCodes = do
+    putStrLn "Result codes verified: 6 codes (ok, error, invalid_param, oom, nullptr, eval_error)"

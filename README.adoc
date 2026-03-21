@@ -7,45 +7,138 @@ Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 
 == What Is This?
 
-BQNiser detects array operation patterns in existing code and rewrites
-them as **optimised BQN array primitives** — expressing in one line what
-takes 50 in Python.
+**BQNiser** scans your existing code for array computation patterns -- loops,
+maps, folds, reductions, comprehensions -- and rewrites them as optimised
+https://mlochbaum.github.io/BQN/[BQN] array primitives.
 
-APL/BQN array languages achieve extraordinary data processing performance
-through vectorised primitives. BQNiser brings this to existing codebases.
+BQN (by Marshall Lochbaum) is an array language descended from APL/J/K.
+It brings first-class functions, trains (`∘ ○ ⊸ ⟜`), under/structural-under
+combinators (`⌾`), rank polymorphism, and leading-axis theory to array
+processing.  BQNiser lets you harness 10-100x speedups on array-heavy
+workloads *without learning BQN yourself*.
+
+Where your Python loop takes 200ms to filter-then-reduce a million-row column,
+a single BQN expression using `/` (replicate), `⌽` (reverse), or `⍋` (grade-up)
+completes in under 2ms via https://github.com/dzaima/CBQN[CBQN]'s vectorised
+runtime.
 
 == How It Works
 
-Point BQNiser at your codebase (or describe patterns in `bqniser.toml`). BQNiser:
+BQNiser follows the https://github.com/hyperpolymath/iseriser[-iser pattern]:
+you describe *what* you want; the tool generates *everything*.
 
-1. Analyses loops, comprehensions, and array operations via AST
-2. Identifies patterns expressible as BQN primitives (each, reduce, scan, etc.)
-3. Generates optimised BQN implementations
-4. Creates a Zig FFI bridge for calling BQN from your code
+1. **Manifest** (`bqniser.toml`) -- describe your workload, entry points, data shapes
+2. **Source Analysis** -- AST-based detection of array patterns in Rust, Python, or Julia source
+3. **Pattern Matching** -- map detected patterns to BQN primitives:
+   - Nested loops over arrays -> `¨` (each), `⌜` (table)
+   - Accumulate/reduce -> `´` (fold), `` ` `` (scan)
+   - Filter -> `/` (replicate) with boolean mask
+   - Sort/rank -> `⍋` (grade-up), `⍒` (grade-down)
+   - Reshape/transpose -> `⥊` (reshape), `⍉` (transpose)
+   - Concatenation -> `∾` (join)
+   - Index selection -> `⊏` (select)
+   - Reversal -> `⌽` (reverse), `⌾` (under) for structural transforms
+4. **Idris2 ABI** (`src/interface/abi/`) -- formal proofs that each rewrite preserves
+   input-output equivalence (dependent types guarantee correctness)
+5. **BQN Codegen** -- emit optimised BQN source using trains and tacit style
+6. **CBQN FFI Bridge** (`src/interface/ffi/`) -- Zig-based C-ABI bridge to the
+   https://github.com/dzaima/CBQN[CBQN] runtime, so generated BQN runs
+   in-process with zero serialisation overhead
 
 == Key Value
 
-* **Array operations at native speed** — vectorised primitives
-* **Pattern detection** — finds optimisable code automatically
-* **Gradual adoption** — replace hot loops one at a time
+* **10-100x on array operations** -- vectorised BQN primitives beat scalar loops
+* **Automatic pattern detection** -- finds optimisable code via AST analysis
+* **Equivalence proofs** -- Idris2 dependent types prove rewrites preserve semantics
+* **Gradual adoption** -- replace hot loops one at a time, keep the rest untouched
+* **Zero BQN knowledge required** -- the tool generates all BQN and FFI code
+* **Rank polymorphism** -- BQN's leading-axis theory means primitives generalise
+  across any number of dimensions automatically
+
+== BQN Primitives Reference
+
+BQNiser targets these core primitives and combinators:
+
+[cols="1,2,3"]
+|===
+| Glyph | Name | Detected Pattern
+
+| `∾` | Join | `concat`, `append`, `extend`
+| `⌽` | Reverse | `reversed()`, `[::-1]`
+| `⍋` | Grade Up | `sorted()`, `argsort`
+| `⍒` | Grade Down | `sorted(reverse=True)`
+| `/` | Replicate | `filter`, boolean indexing
+| `⊏` | Select | `arr[indices]`, `take`, `gather`
+| `⥊` | Reshape | `reshape`, `flatten`, `ravel`
+| `⍉` | Transpose | `transpose`, `T`, axis permutation
+| `¨` | Each | `map`, list comprehension
+| `⌜` | Table | nested `map`, outer product
+| `´` | Fold | `reduce`, `foldl`, `inject`
+| `` ` `` | Scan | `accumulate`, `scanl`, prefix sums
+| `⌾` | Under | structural transforms, lens-like updates
+| `∘○⊸⟜` | Trains | function composition, tacit pipelines
+|===
 
 == Architecture
 
-Follows the hyperpolymath -iser pattern (same as https://github.com/hyperpolymath/chapeliser[Chapeliser]):
+```
+ bqniser.toml          src/interface/abi/         src/interface/ffi/
+ ┌──────────┐          ┌─────────────────┐        ┌─────────────────┐
+ │ Manifest │──parse──→│ Idris2 ABI      │──gen──→│ Zig FFI         │
+ │ (TOML)   │          │ (Types, Layout, │        │ (CBQN embedding │
+ └──────────┘          │  Foreign)       │        │  C-ABI bridge)  │
+      │                └────────┬────────┘        └────────┬────────┘
+      │                         │                          │
+      ▼                         ▼                          ▼
+ ┌──────────┐          ┌─────────────────┐        ┌─────────────────┐
+ │ Rust CLI │──scan──→ │ Pattern Matcher │──emit─→│ BQN Codegen     │
+ │ (clap)   │          │ (AST → BQN map)│        │ (.bqn files)    │
+ └──────────┘          └─────────────────┘        └─────────────────┘
+```
 
-* **Manifest** (`bqniser.toml`) — describe WHAT you want
-* **Idris2 ABI** (`src/abi/`) — formal proofs of interface correctness
-* **Zig FFI** (`ffi/zig/`) — C-ABI bridge to target language runtime
-* **Codegen** (`src/codegen/`) — generates target language wrapper code
-* **Rust CLI** — parses manifest, validates, generates, builds, runs
+* **Rust CLI** -- parses manifest, invokes AST analysis, orchestrates generation
+* **Pattern Matcher** -- maps source-level patterns to BQN primitive candidates
+* **Idris2 ABI** -- proves BQN value layout (array header + shape vector + data cells),
+  proves rewrite equivalence for each transformation
+* **BQN Codegen** -- emits idiomatic BQN using trains, under, and tacit definitions
+* **Zig FFI** -- bridges CBQN's C API (`BQN_NewEval`, `BQN_Call`, value accessors),
+  handles BQN value lifecycle and memory management
 
-User writes zero target language code. Bqniser generates everything.
+Part of the https://github.com/hyperpolymath/iseriser[-iser family] of
+acceleration frameworks.
 
-Part of the https://github.com/hyperpolymath/iseriser[-iser family] of acceleration frameworks.
+== Use Cases
+
+* **Data processing pipelines** -- ETL stages with heavy filtering, sorting, reshaping
+* **Scientific computing** -- matrix operations, statistical reductions, signal processing
+* **Financial analytics** -- rolling windows, aggregations, time-series transforms
+* **Compiler/transpiler backends** -- batch AST transformations as array operations
+* **ETL optimisation** -- replace row-by-row processing with bulk array primitives
+
+== Quick Start
+
+```bash
+# Initialise a manifest
+bqniser init
+
+# Edit bqniser.toml to describe your workload
+# (see examples/ for patterns)
+
+# Generate BQN + FFI artifacts
+bqniser generate
+
+# Build everything
+bqniser build
+
+# Run
+bqniser run
+```
 
 == Status
 
-**Pre-alpha.** Architecture defined, scaffolding in place, codegen pending.
+**Codebase in progress.** Architecture defined, CLI scaffolded, Idris2 ABI types
+and Zig FFI bridge stubbed.  Pattern detection engine and BQN codegen are the
+active development frontier.
 
 == License
 

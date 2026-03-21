@@ -1,90 +1,233 @@
 -- SPDX-License-Identifier: PMPL-1.0-or-later
--- Copyright (c) {{CURRENT_YEAR}} {{AUTHOR}} ({{OWNER}}) <{{AUTHOR_EMAIL}}>
+-- Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 --
-||| Foreign Function Interface Declarations
+||| Foreign Function Interface Declarations for BQNiser
 |||
-||| This module declares all C-compatible functions that will be
-||| implemented in the Zig FFI layer.
+||| This module declares all C-compatible functions for interfacing with
+||| the CBQN runtime.  The Zig FFI layer (src/interface/ffi/) implements
+||| a thin wrapper around CBQN's C API.
 |||
-||| All functions are declared here with type signatures and safety proofs.
-||| Implementations live in ffi/zig/
+||| CBQN C API reference: https://github.com/dzaima/CBQN/blob/master/include/bqnffi.h
+|||
+||| Key CBQN functions we wrap:
+|||   bqn_init()           — initialise the CBQN runtime
+|||   bqn_free()           — shut down the CBQN runtime
+|||   bqn_eval(src)        — evaluate a BQN expression string
+|||   bqn_call1(f, x)      — call a monadic BQN function
+|||   bqn_call2(f, w, x)   — call a dyadic BQN function
+|||   bqn_readF64Arr(v, buf) — read numeric array into f64 buffer
+|||   bqn_toF64(v)         — extract scalar f64 from BQN value
+|||   bqn_type(v)          — get type tag of a BQN value
+|||   bqn_bound(v)         — get element count of a BQN array
 
-module {{PROJECT}}.ABI.Foreign
+module Bqniser.ABI.Foreign
 
-import {{PROJECT}}.ABI.Types
-import {{PROJECT}}.ABI.Layout
+import Bqniser.ABI.Types
+import Bqniser.ABI.Layout
 
 %default total
 
 --------------------------------------------------------------------------------
--- Library Lifecycle
+-- CBQN Runtime Lifecycle
 --------------------------------------------------------------------------------
 
-||| Initialize the library
-||| Returns a handle to the library instance, or Nothing on failure
+||| Initialise the CBQN runtime.
+||| Must be called before any other CBQN function.
+||| Returns a handle to the runtime instance, or Nothing on failure.
 export
-%foreign "C:{{project}}_init, lib{{project}}"
+%foreign "C:bqniser_init, libbqniser"
 prim__init : PrimIO Bits64
 
-||| Safe wrapper for library initialization
+||| Safe wrapper for CBQN runtime initialisation.
 export
 init : IO (Maybe Handle)
 init = do
   ptr <- primIO prim__init
   pure (createHandle ptr)
 
-||| Clean up library resources
+||| Shut down the CBQN runtime and release all resources.
 export
-%foreign "C:{{project}}_free, lib{{project}}"
+%foreign "C:bqniser_free, libbqniser"
 prim__free : Bits64 -> PrimIO ()
 
-||| Safe wrapper for cleanup
+||| Safe wrapper for CBQN runtime shutdown.
 export
 free : Handle -> IO ()
 free h = primIO (prim__free (handlePtr h))
 
 --------------------------------------------------------------------------------
--- Core Operations
+-- BQN Expression Evaluation
 --------------------------------------------------------------------------------
 
-||| Example operation: process data
+||| Evaluate a BQN expression string.
+||| Returns a CBQN value handle (BQNV), or 0 on error.
+||| The expression is compiled and executed by CBQN's bytecode VM.
 export
-%foreign "C:{{project}}_process, lib{{project}}"
-prim__process : Bits64 -> Bits32 -> PrimIO Bits32
+%foreign "C:bqniser_eval, libbqniser"
+prim__eval : Bits64 -> String -> PrimIO Bits64
 
-||| Safe wrapper with error handling
+||| Safe wrapper: evaluate a BQN expression.
+||| Example: eval handle "⌽ 1‿2‿3" evaluates to 3‿2‿1.
 export
-process : Handle -> Bits32 -> IO (Either Result Bits32)
-process h input = do
-  result <- primIO (prim__process (handlePtr h) input)
+eval : Handle -> String -> IO (Either Result Bits64)
+eval h expr = do
+  result <- primIO (prim__eval (handlePtr h) expr)
+  if result == 0
+    then pure (Left EvalError)
+    else pure (Right result)
+
+--------------------------------------------------------------------------------
+-- BQN Function Application
+--------------------------------------------------------------------------------
+
+||| Call a monadic BQN function: F x.
+||| Both f and x are CBQN value handles (BQNV).
+export
+%foreign "C:bqniser_call1, libbqniser"
+prim__call1 : Bits64 -> Bits64 -> Bits64 -> PrimIO Bits64
+
+||| Safe monadic call: apply function f to argument x.
+export
+call1 : Handle -> (f : Bits64) -> (x : Bits64) -> IO (Either Result Bits64)
+call1 h f x = do
+  result <- primIO (prim__call1 (handlePtr h) f x)
+  if result == 0
+    then pure (Left Error)
+    else pure (Right result)
+
+||| Call a dyadic BQN function: w F x.
+||| f, w, x are all CBQN value handles.
+export
+%foreign "C:bqniser_call2, libbqniser"
+prim__call2 : Bits64 -> Bits64 -> Bits64 -> Bits64 -> PrimIO Bits64
+
+||| Safe dyadic call: apply function f with left arg w and right arg x.
+export
+call2 : Handle -> (f : Bits64) -> (w : Bits64) -> (x : Bits64) -> IO (Either Result Bits64)
+call2 h f w x = do
+  result <- primIO (prim__call2 (handlePtr h) f w x)
+  if result == 0
+    then pure (Left Error)
+    else pure (Right result)
+
+--------------------------------------------------------------------------------
+-- BQN Value Type Inspection
+--------------------------------------------------------------------------------
+
+||| Get the type tag of a CBQN value.
+||| Returns one of: 0=number, 1=char, 2=fn, 3=1mod, 4=2mod, 5=ns, 6=array
+export
+%foreign "C:bqniser_type, libbqniser"
+prim__type : Bits64 -> Bits64 -> PrimIO Bits32
+
+||| Safe type inspection.
+export
+valueType : Handle -> Bits64 -> IO (Maybe BQNType)
+valueType h val = do
+  tag <- primIO (prim__type (handlePtr h) val)
+  pure $ case tag of
+    0 => Just BQNNumber
+    1 => Just BQNCharacter
+    2 => Just BQNFunction
+    3 => Just BQN1Modifier
+    4 => Just BQN2Modifier
+    5 => Just BQNNamespace
+    6 => Just BQNArray
+    _ => Nothing
+
+||| Get the element count (bound) of a BQN array value.
+export
+%foreign "C:bqniser_bound, libbqniser"
+prim__bound : Bits64 -> Bits64 -> PrimIO Bits64
+
+||| Safe bound query: how many elements in this array?
+export
+bound : Handle -> Bits64 -> IO Bits64
+bound h val = primIO (prim__bound (handlePtr h) val)
+
+--------------------------------------------------------------------------------
+-- Numeric Array I/O
+--------------------------------------------------------------------------------
+
+||| Read a BQN numeric array into an f64 buffer.
+||| The buffer must be pre-allocated with at least `bound` elements.
+export
+%foreign "C:bqniser_read_f64_arr, libbqniser"
+prim__readF64Arr : Bits64 -> Bits64 -> Bits64 -> PrimIO Bits32
+
+||| Safe numeric array reader.
+||| Returns Ok if the read succeeded, or an error code.
+export
+readF64Arr : Handle -> (val : Bits64) -> (buf : Bits64) -> IO (Either Result ())
+readF64Arr h val buf = do
+  result <- primIO (prim__readF64Arr (handlePtr h) val buf)
   pure $ case result of
-    0 => Left Error
-    n => Right n
+    0 => Right ()
+    _ => Left Error
+
+||| Extract a scalar f64 from a BQN numeric value.
+export
+%foreign "C:bqniser_to_f64, libbqniser"
+prim__toF64 : Bits64 -> Bits64 -> PrimIO Double
+
+||| Safe scalar extraction.
+export
+toF64 : Handle -> Bits64 -> IO Double
+toF64 h val = primIO (prim__toF64 (handlePtr h) val)
+
+||| Create a BQN numeric array from an f64 buffer.
+export
+%foreign "C:bqniser_make_f64_arr, libbqniser"
+prim__makeF64Arr : Bits64 -> Bits64 -> Bits32 -> PrimIO Bits64
+
+||| Safe numeric array constructor.
+||| Takes a pointer to contiguous f64 data and element count.
+export
+makeF64Arr : Handle -> (buf : Bits64) -> (len : Bits32) -> IO (Either Result Bits64)
+makeF64Arr h buf len = do
+  result <- primIO (prim__makeF64Arr (handlePtr h) buf len)
+  if result == 0
+    then pure (Left OutOfMemory)
+    else pure (Right result)
+
+--------------------------------------------------------------------------------
+-- BQN Value Lifecycle
+--------------------------------------------------------------------------------
+
+||| Release a CBQN value (decrement reference count).
+export
+%foreign "C:bqniser_release, libbqniser"
+prim__release : Bits64 -> Bits64 -> PrimIO ()
+
+||| Safe value release.
+export
+release : Handle -> Bits64 -> IO ()
+release h val = primIO (prim__release (handlePtr h) val)
 
 --------------------------------------------------------------------------------
 -- String Operations
 --------------------------------------------------------------------------------
 
-||| Convert C string to Idris String
+||| Convert a BQN character array to a C string.
+export
+%foreign "C:bqniser_to_cstr, libbqniser"
+prim__toCStr : Bits64 -> Bits64 -> PrimIO Bits64
+
+||| Free a C string allocated by bqniser_to_cstr.
+export
+%foreign "C:bqniser_free_string, libbqniser"
+prim__freeString : Bits64 -> PrimIO ()
+
+||| Convert C string to Idris String (from Idris2 support library)
 export
 %foreign "support:idris2_getString, libidris2_support"
 prim__getString : Bits64 -> String
 
-||| Free C string
+||| Safe BQN string extraction.
 export
-%foreign "C:{{project}}_free_string, lib{{project}}"
-prim__freeString : Bits64 -> PrimIO ()
-
-||| Get string result from library
-export
-%foreign "C:{{project}}_get_string, lib{{project}}"
-prim__getResult : Bits64 -> PrimIO Bits64
-
-||| Safe string getter
-export
-getString : Handle -> IO (Maybe String)
-getString h = do
-  ptr <- primIO (prim__getResult (handlePtr h))
+getString : Handle -> Bits64 -> IO (Maybe String)
+getString h val = do
+  ptr <- primIO (prim__toCStr (handlePtr h) val)
   if ptr == 0
     then pure Nothing
     else do
@@ -93,42 +236,15 @@ getString h = do
       pure (Just str)
 
 --------------------------------------------------------------------------------
--- Array/Buffer Operations
---------------------------------------------------------------------------------
-
-||| Process array data
-export
-%foreign "C:{{project}}_process_array, lib{{project}}"
-prim__processArray : Bits64 -> Bits64 -> Bits32 -> PrimIO Bits32
-
-||| Safe array processor
-export
-processArray : Handle -> (buffer : Bits64) -> (len : Bits32) -> IO (Either Result ())
-processArray h buf len = do
-  result <- primIO (prim__processArray (handlePtr h) buf len)
-  pure $ case resultFromInt result of
-    Just Ok => Right ()
-    Just err => Left err
-    Nothing => Left Error
-  where
-    resultFromInt : Bits32 -> Maybe Result
-    resultFromInt 0 = Just Ok
-    resultFromInt 1 = Just Error
-    resultFromInt 2 = Just InvalidParam
-    resultFromInt 3 = Just OutOfMemory
-    resultFromInt 4 = Just NullPointer
-    resultFromInt _ = Nothing
-
---------------------------------------------------------------------------------
 -- Error Handling
 --------------------------------------------------------------------------------
 
-||| Get last error message
+||| Get the last error message from the CBQN bridge.
 export
-%foreign "C:{{project}}_last_error, lib{{project}}"
+%foreign "C:bqniser_last_error, libbqniser"
 prim__lastError : PrimIO Bits64
 
-||| Retrieve last error as string
+||| Retrieve last error as string.
 export
 lastError : IO (Maybe String)
 lastError = do
@@ -137,72 +253,56 @@ lastError = do
     then pure Nothing
     else pure (Just (prim__getString ptr))
 
-||| Get error description for result code
+||| Human-readable error description for result codes.
 export
 errorDescription : Result -> String
-errorDescription Ok = "Success"
-errorDescription Error = "Generic error"
-errorDescription InvalidParam = "Invalid parameter"
-errorDescription OutOfMemory = "Out of memory"
-errorDescription NullPointer = "Null pointer"
+errorDescription Ok           = "Success"
+errorDescription Error        = "Generic CBQN error"
+errorDescription InvalidParam = "Invalid parameter (bad rank, wrong type)"
+errorDescription OutOfMemory  = "Out of memory (CBQN heap exhausted)"
+errorDescription NullPointer  = "Null pointer (uninitialised BQN value)"
+errorDescription EvalError    = "BQN evaluation error (syntax or runtime)"
 
 --------------------------------------------------------------------------------
 -- Version Information
 --------------------------------------------------------------------------------
 
-||| Get library version
+||| Get the bqniser FFI bridge version.
 export
-%foreign "C:{{project}}_version, lib{{project}}"
+%foreign "C:bqniser_version, libbqniser"
 prim__version : PrimIO Bits64
 
-||| Get version as string
+||| Get version as string.
 export
 version : IO String
 version = do
   ptr <- primIO prim__version
   pure (prim__getString ptr)
 
-||| Get library build info
+||| Get CBQN runtime version (if available).
 export
-%foreign "C:{{project}}_build_info, lib{{project}}"
-prim__buildInfo : PrimIO Bits64
+%foreign "C:bqniser_cbqn_version, libbqniser"
+prim__cbqnVersion : PrimIO Bits64
 
-||| Get build information
+||| Get CBQN version.
 export
-buildInfo : IO String
-buildInfo = do
-  ptr <- primIO prim__buildInfo
-  pure (prim__getString ptr)
-
---------------------------------------------------------------------------------
--- Callback Support
---------------------------------------------------------------------------------
-
-||| Callback function type (C ABI)
-public export
-Callback : Type
-Callback = Bits64 -> Bits32 -> Bits32
-
-||| Register a callback
-export
-%foreign "C:{{project}}_register_callback, lib{{project}}"
-prim__registerCallback : Bits64 -> AnyPtr -> PrimIO Bits32
-
--- TODO: Implement safe callback registration.
--- The callback must be wrapped via a proper FFI callback mechanism.
--- Do NOT use cast — it is banned per project safety standards.
--- See: https://idris2.readthedocs.io/en/latest/ffi/ffi.html#callbacks
+cbqnVersion : IO (Maybe String)
+cbqnVersion = do
+  ptr <- primIO prim__cbqnVersion
+  if ptr == 0
+    then pure Nothing
+    else pure (Just (prim__getString ptr))
 
 --------------------------------------------------------------------------------
 -- Utility Functions
 --------------------------------------------------------------------------------
 
-||| Check if library is initialized
+||| Check if CBQN runtime is initialised.
 export
-%foreign "C:{{project}}_is_initialized, lib{{project}}"
+%foreign "C:bqniser_is_initialized, libbqniser"
 prim__isInitialized : Bits64 -> PrimIO Bits32
 
-||| Check initialization status
+||| Check initialisation status.
 export
 isInitialized : Handle -> IO Bool
 isInitialized h = do
