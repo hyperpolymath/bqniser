@@ -47,7 +47,9 @@ fn generate_c_header(program: &BQNProgram) -> Result<String> {
 
     // Lifecycle functions.
     out.push_str("/**\n");
-    out.push_str(" * Initialise the CBQN runtime. Must be called before any other bqniser function.\n");
+    out.push_str(
+        " * Initialise the CBQN runtime. Must be called before any other bqniser function.\n",
+    );
     out.push_str(" * Returns 0 on success, non-zero on failure.\n");
     out.push_str(" */\n");
     out.push_str("int bqniser_init(void);\n\n");
@@ -66,7 +68,10 @@ fn generate_c_header(program: &BQNProgram) -> Result<String> {
             .map(|(i, t)| format!("{} arg{}", t, i))
             .collect::<Vec<_>>()
             .join(", ");
-        out.push_str(&format!("{} {}({});\n\n", ffi.return_type, ffi.c_name, params));
+        out.push_str(&format!(
+            "{} {}({});\n\n",
+            ffi.return_type, ffi.c_name, params
+        ));
     }
 
     out.push_str("#ifdef __cplusplus\n");
@@ -145,10 +150,7 @@ fn generate_zig_impl(program: &BQNProgram) -> Result<String> {
         ));
 
         // Function body: evaluate BQN expression via CBQN API.
-        out.push_str(&format!(
-            "    // Evaluate: {}\n",
-            ffi.bqn_expr
-        ));
+        out.push_str(&format!("    // Evaluate: {}\n", ffi.bqn_expr));
         out.push_str("    _ = .{");
         // Reference all parameters to avoid unused-variable errors.
         for (i, _) in ffi.param_types.iter().enumerate() {
@@ -161,10 +163,7 @@ fn generate_zig_impl(program: &BQNProgram) -> Result<String> {
 
         // Emit a placeholder BQN eval call.
         let escaped_expr = ffi.bqn_expr.replace('"', "\\\"");
-        out.push_str(&format!(
-            "    const expr = \"{}\";\n",
-            escaped_expr
-        ));
+        out.push_str(&format!("    const expr = \"{}\";\n", escaped_expr));
         out.push_str("    const bqn_result = c.bqn_eval(expr.ptr, expr.len);\n");
         out.push_str("    _ = bqn_result;\n");
 

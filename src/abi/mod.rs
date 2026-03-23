@@ -88,7 +88,7 @@ impl BQNPrimitive {
             BQNPrimitive::Replicate => 2,
             BQNPrimitive::Select => 2,
             BQNPrimitive::Reshape => 2,
-            BQNPrimitive::Fold => 1,  // modifier applied to a function, then to array
+            BQNPrimitive::Fold => 1, // modifier applied to a function, then to array
             BQNPrimitive::Scan => 1,
             BQNPrimitive::Each => 1,
             BQNPrimitive::Table => 2,
@@ -216,9 +216,7 @@ pub struct FFIDeclaration {
 // ---------------------------------------------------------------------------
 
 /// Convert a manifest SourcePattern to the ABI ArrayPatternKind.
-pub fn source_pattern_to_kind(
-    sp: &crate::manifest::SourcePattern,
-) -> ArrayPatternKind {
+pub fn source_pattern_to_kind(sp: &crate::manifest::SourcePattern) -> ArrayPatternKind {
     match sp {
         crate::manifest::SourcePattern::LoopSum => ArrayPatternKind::LoopSum,
         crate::manifest::SourcePattern::MapTransform => ArrayPatternKind::MapTransform,

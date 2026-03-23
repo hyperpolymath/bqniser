@@ -32,10 +32,7 @@ pub fn generate_all(manifest: &Manifest, output_dir: &str) -> Result<()> {
     let program = parser::analyse_manifest(manifest)?;
 
     // Step 2: Emit the .bqn file.
-    let bqn_path = out.join(format!(
-        "{}.bqn",
-        program.project_name.replace(' ', "_")
-    ));
+    let bqn_path = out.join(format!("{}.bqn", program.project_name.replace(' ', "_")));
     let bqn_source = bqn_gen::generate_bqn(&program)?;
     fs::write(&bqn_path, &bqn_source)
         .with_context(|| format!("Failed to write {}", bqn_path.display()))?;

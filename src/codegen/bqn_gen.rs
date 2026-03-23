@@ -35,7 +35,7 @@ pub fn generate_bqn(program: &BQNProgram) -> Result<String> {
     if program.optimised {
         out.push_str("# Optimisation: enabled\n");
     }
-    out.push_str("\n");
+    out.push('\n');
 
     // Emit each pattern as a named BQN function.
     for (i, pattern) in program.patterns.iter().enumerate() {
@@ -61,7 +61,7 @@ pub fn generate_bqn(program: &BQNProgram) -> Result<String> {
         // BQN assignment arrow: ←
         out.push_str(&format!("{} \u{2190} {}\n", fn_name, body));
         out.push_str(&format!("# FFI: {} => \"{}\"\n", ffi.c_name, ffi.bqn_expr));
-        out.push_str("\n");
+        out.push('\n');
     }
 
     // If there are patterns, emit an export namespace so CBQN FFI can find them.
@@ -134,7 +134,7 @@ fn generate_pattern_body(kind: ArrayPatternKind, optimised: bool) -> String {
 /// BQN identifiers are lowercase Unicode letters. We replace hyphens
 /// and underscores with nothing (camelCase) and ensure lowercase start.
 fn sanitise_bqn_name(name: &str) -> String {
-    let parts: Vec<&str> = name.split(|c| c == '-' || c == '_' || c == ' ').collect();
+    let parts: Vec<&str> = name.split(['-', '_', ' ']).collect();
     if parts.is_empty() {
         return "unnamed".to_string();
     }

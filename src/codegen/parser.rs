@@ -10,10 +10,8 @@
 
 use anyhow::Result;
 
-use crate::abi::{
-    pattern_from_entry, ArrayPattern, BQNPrimitive, BQNProgram, FFIDeclaration,
-};
-use crate::manifest::{effective_name, Manifest, SourcePattern};
+use crate::abi::{ArrayPattern, BQNPrimitive, BQNProgram, FFIDeclaration, pattern_from_entry};
+use crate::manifest::{Manifest, SourcePattern, effective_name};
 
 /// Analyse the manifest and produce a BQNProgram.
 ///
@@ -29,15 +27,9 @@ pub fn analyse_manifest(manifest: &Manifest) -> Result<BQNProgram> {
     for entry in &manifest.patterns {
         let array_pattern = pattern_from_entry(entry);
         let bqn_expr = bqn_expression_for_pattern(&entry.source_pattern, &entry.input_type);
-        let c_name = format!(
-            "bqniser_{}",
-            entry.name.replace('-', "_").replace(' ', "_")
-        );
-        let (param_types, return_type) = c_types_for_pattern(
-            &entry.source_pattern,
-            &entry.input_type,
-            &entry.output_type,
-        );
+        let c_name = format!("bqniser_{}", entry.name.replace(['-', ' '], "_"));
+        let (param_types, return_type) =
+            c_types_for_pattern(&entry.source_pattern, &entry.input_type, &entry.output_type);
 
         ffi_declarations.push(FFIDeclaration {
             c_name,

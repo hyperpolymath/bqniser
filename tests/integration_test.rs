@@ -13,14 +13,12 @@
 // 7. ABI primitive properties
 // 8. Example manifest (examples/array-ops/)
 
-use bqniser::abi::{
-    pattern_from_entry, source_pattern_to_kind, ArrayPatternKind, BQNPrimitive,
-};
+use bqniser::abi::{ArrayPatternKind, BQNPrimitive, pattern_from_entry, source_pattern_to_kind};
 use bqniser::codegen::bqn_gen::generate_bqn;
 use bqniser::codegen::ffi_gen::generate_ffi;
 use bqniser::codegen::parser::analyse_manifest;
 use bqniser::manifest::{
-    effective_name, load_manifest, validate, BqnConfig, Manifest, PatternEntry, SourcePattern,
+    BqnConfig, Manifest, PatternEntry, SourcePattern, effective_name, load_manifest, validate,
 };
 
 /// Helper: build a minimal valid manifest in-memory.
@@ -109,7 +107,10 @@ optimize = false
     assert_eq!(manifest.patterns.len(), 2);
     assert_eq!(manifest.patterns[0].name, "my-sum");
     assert_eq!(manifest.patterns[0].source_pattern, SourcePattern::LoopSum);
-    assert_eq!(manifest.patterns[1].source_pattern, SourcePattern::FilterPredicate);
+    assert_eq!(
+        manifest.patterns[1].source_pattern,
+        SourcePattern::FilterPredicate
+    );
     assert_eq!(manifest.bqn.backend, "cbqn");
     assert!(!manifest.bqn.optimize);
 }
@@ -121,7 +122,10 @@ optimize = false
 #[test]
 fn test_manifest_validation_valid() {
     let m = sample_manifest();
-    assert!(validate(&m).is_ok(), "Valid manifest should pass validation");
+    assert!(
+        validate(&m).is_ok(),
+        "Valid manifest should pass validation"
+    );
 }
 
 #[test]
@@ -293,12 +297,25 @@ optimize = true
         manifest_path.to_str().unwrap(),
         output_dir.to_str().unwrap(),
     );
-    assert!(result.is_ok(), "Generate pipeline should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Generate pipeline should succeed: {:?}",
+        result.err()
+    );
 
     // Check output files exist.
-    assert!(output_dir.join("e2e-test.bqn").exists(), ".bqn file should exist");
-    assert!(output_dir.join("bqniser_ffi.h").exists(), "C header should exist");
-    assert!(output_dir.join("bqniser_ffi.zig").exists(), "Zig FFI should exist");
+    assert!(
+        output_dir.join("e2e-test.bqn").exists(),
+        ".bqn file should exist"
+    );
+    assert!(
+        output_dir.join("bqniser_ffi.h").exists(),
+        "C header should exist"
+    );
+    assert!(
+        output_dir.join("bqniser_ffi.zig").exists(),
+        "Zig FFI should exist"
+    );
 
     // Check .bqn content.
     let bqn = std::fs::read_to_string(output_dir.join("e2e-test.bqn")).unwrap();
@@ -374,11 +391,26 @@ fn test_pattern_kind_primitives() {
 
 #[test]
 fn test_source_pattern_to_kind() {
-    assert_eq!(source_pattern_to_kind(&SourcePattern::LoopSum), ArrayPatternKind::LoopSum);
-    assert_eq!(source_pattern_to_kind(&SourcePattern::MapTransform), ArrayPatternKind::MapTransform);
-    assert_eq!(source_pattern_to_kind(&SourcePattern::FilterPredicate), ArrayPatternKind::FilterPredicate);
-    assert_eq!(source_pattern_to_kind(&SourcePattern::Sort), ArrayPatternKind::Sort);
-    assert_eq!(source_pattern_to_kind(&SourcePattern::GroupBy), ArrayPatternKind::GroupBy);
+    assert_eq!(
+        source_pattern_to_kind(&SourcePattern::LoopSum),
+        ArrayPatternKind::LoopSum
+    );
+    assert_eq!(
+        source_pattern_to_kind(&SourcePattern::MapTransform),
+        ArrayPatternKind::MapTransform
+    );
+    assert_eq!(
+        source_pattern_to_kind(&SourcePattern::FilterPredicate),
+        ArrayPatternKind::FilterPredicate
+    );
+    assert_eq!(
+        source_pattern_to_kind(&SourcePattern::Sort),
+        ArrayPatternKind::Sort
+    );
+    assert_eq!(
+        source_pattern_to_kind(&SourcePattern::GroupBy),
+        ArrayPatternKind::GroupBy
+    );
 }
 
 // -----------------------------------------------------------------------
@@ -396,7 +428,10 @@ fn test_pattern_from_entry() {
     let pat = pattern_from_entry(&entry);
     assert_eq!(pat.name, "my-sort");
     assert_eq!(pat.kind, ArrayPatternKind::Sort);
-    assert_eq!(pat.primitives, vec![BQNPrimitive::GradeUp, BQNPrimitive::Select]);
+    assert_eq!(
+        pat.primitives,
+        vec![BQNPrimitive::GradeUp, BQNPrimitive::Select]
+    );
     assert_eq!(pat.input_type, "i64");
     assert_eq!(pat.output_type, "Vec<i64>");
 }
@@ -439,7 +474,11 @@ fn test_example_array_ops_manifest() {
     // Generate into a temp dir.
     let dir = tempfile::tempdir().unwrap();
     let result = bqniser::generate(manifest_path, dir.path().to_str().unwrap());
-    assert!(result.is_ok(), "Example generation should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Example generation should succeed: {:?}",
+        result.err()
+    );
 }
 
 // =======================================================================
@@ -447,7 +486,12 @@ fn test_example_array_ops_manifest() {
 // =======================================================================
 
 /// Helper: build a manifest with a single pattern for focused testing.
-fn single_pattern_manifest(name: &str, pattern: SourcePattern, in_ty: &str, out_ty: &str) -> Manifest {
+fn single_pattern_manifest(
+    name: &str,
+    pattern: SourcePattern,
+    in_ty: &str,
+    out_ty: &str,
+) -> Manifest {
     Manifest {
         workload: Default::default(),
         data: Default::default(),
@@ -483,7 +527,8 @@ fn test_point_loop_sum_generates_fold() {
     // Must contain +´ — the fold modifier applied to addition.
     assert!(
         bqn.contains("+\u{00B4}"),
-        "LoopSum must generate +´ (fold): got:\n{}", bqn
+        "LoopSum must generate +´ (fold): got:\n{}",
+        bqn
     );
     // Must NOT contain primitives from other patterns.
     assert!(
@@ -492,7 +537,10 @@ fn test_point_loop_sum_generates_fold() {
     );
     // FFI declaration should use the correct C name.
     let (header, _) = generate_ffi(&program).unwrap();
-    assert!(header.contains("bqniser_total"), "FFI should declare bqniser_total");
+    assert!(
+        header.contains("bqniser_total"),
+        "FFI should declare bqniser_total"
+    );
     // LoopSum returns a scalar — return type should be 'double', not 'size_t'.
     assert!(
         header.contains("double bqniser_total"),
@@ -512,7 +560,8 @@ fn test_point_map_transform_generates_each() {
 
     assert!(
         bqn.contains('\u{00A8}'),
-        "MapTransform must generate ¨ (each): got:\n{}", bqn
+        "MapTransform must generate ¨ (each): got:\n{}",
+        bqn
     );
     // The BQN expression should reference 𝕗 (operand function).
     assert!(
@@ -527,14 +576,20 @@ fn test_point_map_transform_generates_each() {
 
 #[test]
 fn test_point_filter_predicate_generates_replicate() {
-    let m = single_pattern_manifest("keep-positive", SourcePattern::FilterPredicate, "f64", "Vec<f64>");
+    let m = single_pattern_manifest(
+        "keep-positive",
+        SourcePattern::FilterPredicate,
+        "f64",
+        "Vec<f64>",
+    );
     let program = analyse_manifest(&m).unwrap();
     let bqn = generate_bqn(&program).unwrap();
 
     // The body should contain / (replicate) in the filter context.
     assert!(
         bqn.contains("/\u{1D569}"),
-        "FilterPredicate must generate /𝕩 (replicate): got:\n{}", bqn
+        "FilterPredicate must generate /𝕩 (replicate): got:\n{}",
+        bqn
     );
     // FFI should return size_t (array result).
     let (header, _) = generate_ffi(&program).unwrap();
@@ -556,11 +611,13 @@ fn test_point_sort_generates_grade_select() {
 
     assert!(
         bqn.contains('\u{234B}'),
-        "Sort must generate ⍋ (grade up): got:\n{}", bqn
+        "Sort must generate ⍋ (grade up): got:\n{}",
+        bqn
     );
     assert!(
         bqn.contains('\u{228F}'),
-        "Sort must generate ⊏ (select): got:\n{}", bqn
+        "Sort must generate ⊏ (select): got:\n{}",
+        bqn
     );
     // Sort pattern should use both primitives together.
     let pat = &program.patterns[0];
@@ -582,7 +639,8 @@ fn test_point_group_by_generates_group() {
     // ⊔ = U+2294 (BQN group primitive).
     assert!(
         bqn.contains('\u{2294}'),
-        "GroupBy must generate ⊔ (group): got:\n{}", bqn
+        "GroupBy must generate ⊔ (group): got:\n{}",
+        bqn
     );
     // GroupBy FFI takes a keys parameter (const int64_t*).
     let (header, _) = generate_ffi(&program).unwrap();
@@ -653,7 +711,10 @@ optimize = true
 "#;
     std::fs::write(&manifest_path, toml_content).unwrap();
 
-    let result = bqniser::generate(manifest_path.to_str().unwrap(), output_dir.to_str().unwrap());
+    let result = bqniser::generate(
+        manifest_path.to_str().unwrap(),
+        output_dir.to_str().unwrap(),
+    );
     assert!(result.is_ok(), "Full pipeline: {:?}", result.err());
 
     // All three output files must exist.
@@ -716,7 +777,10 @@ optimize = false
 "#;
     std::fs::write(&manifest_path, toml_content).unwrap();
 
-    let result = bqniser::generate(manifest_path.to_str().unwrap(), output_dir.to_str().unwrap());
+    let result = bqniser::generate(
+        manifest_path.to_str().unwrap(),
+        output_dir.to_str().unwrap(),
+    );
     assert!(result.is_ok(), "Minimal pipeline: {:?}", result.err());
 
     let bqn = std::fs::read_to_string(output_dir.join("minimal.bqn")).unwrap();
@@ -725,7 +789,10 @@ optimize = false
         !bqn.contains("Optimisation: enabled"),
         "optimize=false should not emit optimisation comment"
     );
-    assert!(bqn.contains("minimal"), "BQN file should reference project name");
+    assert!(
+        bqn.contains("minimal"),
+        "BQN file should reference project name"
+    );
 }
 
 // -----------------------------------------------------------------------
@@ -757,8 +824,15 @@ optimize = true
 "#;
     std::fs::write(&manifest_path, toml_content).unwrap();
 
-    let result = bqniser::generate(manifest_path.to_str().unwrap(), output_dir.to_str().unwrap());
-    assert!(result.is_ok(), "Should create nested output dirs: {:?}", result.err());
+    let result = bqniser::generate(
+        manifest_path.to_str().unwrap(),
+        output_dir.to_str().unwrap(),
+    );
+    assert!(
+        result.is_ok(),
+        "Should create nested output dirs: {:?}",
+        result.err()
+    );
     assert!(output_dir.join("nested-dir.bqn").exists());
 }
 
@@ -798,7 +872,10 @@ fn test_edge_empty_patterns_list() {
 
     // BQN generation with no patterns should still produce valid output.
     let bqn = generate_bqn(&program).unwrap();
-    assert!(bqn.contains("empty-patterns"), "Header should still have project name");
+    assert!(
+        bqn.contains("empty-patterns"),
+        "Header should still have project name"
+    );
     // Should NOT have the export namespace when there are no patterns.
     assert!(
         !bqn.contains("bqniser \u{2190} {"),
@@ -890,7 +967,8 @@ optimize = true
     let err_msg = result.unwrap_err().to_string();
     assert!(
         err_msg.contains("nonexistent-pattern") || err_msg.contains("unknown variant"),
-        "Error should mention the bad variant: {}", err_msg
+        "Error should mention the bad variant: {}",
+        err_msg
     );
 }
 
@@ -903,10 +981,7 @@ fn test_edge_missing_input_type() {
     let mut m = sample_manifest();
     m.patterns[0].input_type = String::new();
     let result = validate(&m);
-    assert!(
-        result.is_err(),
-        "Empty input-type should fail validation"
-    );
+    assert!(result.is_err(), "Empty input-type should fail validation");
     assert!(
         result.unwrap_err().to_string().contains("input-type"),
         "Error should mention input-type"
@@ -922,10 +997,7 @@ fn test_edge_missing_output_type() {
     let mut m = sample_manifest();
     m.patterns[0].output_type = String::new();
     let result = validate(&m);
-    assert!(
-        result.is_err(),
-        "Empty output-type should fail validation"
-    );
+    assert!(result.is_err(), "Empty output-type should fail validation");
     assert!(
         result.unwrap_err().to_string().contains("output-type"),
         "Error should mention output-type"
@@ -966,7 +1038,10 @@ optimize = true
 "#;
 
     let m: Manifest = toml::from_str(toml_str).unwrap();
-    assert!(validate(&m).is_ok(), "Legacy workload name should satisfy validation");
+    assert!(
+        validate(&m).is_ok(),
+        "Legacy workload name should satisfy validation"
+    );
     assert_eq!(effective_name(&m), "legacy-work");
 }
 
@@ -989,7 +1064,8 @@ fn test_edge_pattern_name_sanitisation() {
     let bqn = generate_bqn(&program).unwrap();
     assert!(
         bqn.contains("mySpecialNameHere"),
-        "BQN should use camelCase sanitised name: got:\n{}", bqn
+        "BQN should use camelCase sanitised name: got:\n{}",
+        bqn
     );
 }
 
@@ -1013,7 +1089,8 @@ fn test_aspect_bqn_spdx_header() {
 
         assert!(
             bqn.contains("SPDX-License-Identifier: PMPL-1.0-or-later"),
-            "BQN file for {} missing SPDX header", name
+            "BQN file for {} missing SPDX header",
+            name
         );
     }
 }
@@ -1029,17 +1106,38 @@ fn test_aspect_c_header_abi_declarations() {
     let (header, _) = generate_ffi(&program).unwrap();
 
     // Include guard.
-    assert!(header.contains("#ifndef BQNISER_FFI_H"), "Missing include guard");
-    assert!(header.contains("#define BQNISER_FFI_H"), "Missing define guard");
-    assert!(header.contains("#endif /* BQNISER_FFI_H */"), "Missing endif guard");
+    assert!(
+        header.contains("#ifndef BQNISER_FFI_H"),
+        "Missing include guard"
+    );
+    assert!(
+        header.contains("#define BQNISER_FFI_H"),
+        "Missing define guard"
+    );
+    assert!(
+        header.contains("#endif /* BQNISER_FFI_H */"),
+        "Missing endif guard"
+    );
 
     // C++ extern "C" linkage guard.
-    assert!(header.contains("extern \"C\""), "Missing extern C for C++ compat");
-    assert!(header.contains("#ifdef __cplusplus"), "Missing __cplusplus guard");
+    assert!(
+        header.contains("extern \"C\""),
+        "Missing extern C for C++ compat"
+    );
+    assert!(
+        header.contains("#ifdef __cplusplus"),
+        "Missing __cplusplus guard"
+    );
 
     // Standard includes for fixed-width types.
-    assert!(header.contains("#include <stddef.h>"), "Missing stddef.h include");
-    assert!(header.contains("#include <stdint.h>"), "Missing stdint.h include");
+    assert!(
+        header.contains("#include <stddef.h>"),
+        "Missing stddef.h include"
+    );
+    assert!(
+        header.contains("#include <stdint.h>"),
+        "Missing stdint.h include"
+    );
 
     // SPDX header.
     assert!(
@@ -1051,7 +1149,8 @@ fn test_aspect_c_header_abi_declarations() {
     for ffi in &program.ffi_declarations {
         assert!(
             header.contains(&ffi.c_name),
-            "Header missing function: {}", ffi.c_name
+            "Header missing function: {}",
+            ffi.c_name
         );
     }
 }
@@ -1068,7 +1167,10 @@ fn test_aspect_zig_ffi_structure() {
 
     // Zig must import CBQN C API.
     assert!(zig.contains("@cImport"), "Zig must use @cImport");
-    assert!(zig.contains("@cInclude(\"cbqn.h\")"), "Zig must include cbqn.h");
+    assert!(
+        zig.contains("@cInclude(\"cbqn.h\")"),
+        "Zig must include cbqn.h"
+    );
 
     // SPDX header.
     assert!(
@@ -1090,7 +1192,8 @@ fn test_aspect_zig_ffi_structure() {
     for ffi in &program.ffi_declarations {
         assert!(
             zig.contains(&format!("export fn {}", ffi.c_name)),
-            "Zig missing export for: {}", ffi.c_name
+            "Zig missing export for: {}",
+            ffi.c_name
         );
     }
 }
@@ -1104,23 +1207,24 @@ fn test_aspect_bqn_primitives_unicode_correct() {
     // Verify every primitive glyph is the correct Unicode character,
     // not a lookalike or mojibake.
     let cases: Vec<(BQNPrimitive, &str, u32)> = vec![
-        (BQNPrimitive::Join, "\u{223E}", 0x223E),           // ∾ INVERTED LAZY S
-        (BQNPrimitive::Reverse, "\u{233D}", 0x233D),         // ⌽ APL FUNCTIONAL SYMBOL CIRCLE STILE
-        (BQNPrimitive::GradeUp, "\u{234B}", 0x234B),         // ⍋ APL FUNCTIONAL SYMBOL DELTA STILE
-        (BQNPrimitive::Replicate, "/", 0x002F),              // / SOLIDUS
-        (BQNPrimitive::Select, "\u{228F}", 0x228F),          // ⊏ SQUARE IMAGE OF
-        (BQNPrimitive::Reshape, "\u{294A}", 0x294A),         // ⥊ LEFT BARB UP RIGHT BARB DOWN HARPOON
-        (BQNPrimitive::Fold, "\u{00B4}", 0x00B4),            // ´ ACUTE ACCENT
-        (BQNPrimitive::Scan, "`", 0x0060),                   // ` GRAVE ACCENT
-        (BQNPrimitive::Each, "\u{00A8}", 0x00A8),            // ¨ DIAERESIS
-        (BQNPrimitive::Table, "\u{231C}", 0x231C),           // ⌜ TOP LEFT CORNER
+        (BQNPrimitive::Join, "\u{223E}", 0x223E), // ∾ INVERTED LAZY S
+        (BQNPrimitive::Reverse, "\u{233D}", 0x233D), // ⌽ APL FUNCTIONAL SYMBOL CIRCLE STILE
+        (BQNPrimitive::GradeUp, "\u{234B}", 0x234B), // ⍋ APL FUNCTIONAL SYMBOL DELTA STILE
+        (BQNPrimitive::Replicate, "/", 0x002F),   // / SOLIDUS
+        (BQNPrimitive::Select, "\u{228F}", 0x228F), // ⊏ SQUARE IMAGE OF
+        (BQNPrimitive::Reshape, "\u{294A}", 0x294A), // ⥊ LEFT BARB UP RIGHT BARB DOWN HARPOON
+        (BQNPrimitive::Fold, "\u{00B4}", 0x00B4), // ´ ACUTE ACCENT
+        (BQNPrimitive::Scan, "`", 0x0060),        // ` GRAVE ACCENT
+        (BQNPrimitive::Each, "\u{00A8}", 0x00A8), // ¨ DIAERESIS
+        (BQNPrimitive::Table, "\u{231C}", 0x231C), // ⌜ TOP LEFT CORNER
     ];
 
     for (prim, expected_str, expected_cp) in &cases {
         let glyph = prim.glyph();
         assert_eq!(
             glyph, *expected_str,
-            "{:?} glyph mismatch: expected {:?}, got {:?}", prim, expected_str, glyph
+            "{:?} glyph mismatch: expected {:?}, got {:?}",
+            prim, expected_str, glyph
         );
         // Verify the actual Unicode code point.
         let first_cp = glyph.chars().next().unwrap() as u32;
@@ -1182,9 +1286,12 @@ fn test_abi_all_primitives_have_glyphs() {
         assert!(!glyph.is_empty(), "{:?} has empty glyph", prim);
         // Each glyph should be exactly one Unicode character.
         assert_eq!(
-            glyph.chars().count(), 1,
+            glyph.chars().count(),
+            1,
             "{:?} glyph should be exactly 1 character, got {}: {:?}",
-            prim, glyph.chars().count(), glyph
+            prim,
+            glyph.chars().count(),
+            glyph
         );
     }
 }
@@ -1214,7 +1321,9 @@ fn test_abi_all_primitives_have_labels() {
         // Labels should start with uppercase.
         assert!(
             label.chars().next().unwrap().is_uppercase(),
-            "{:?} label should be capitalised: {:?}", prim, label
+            "{:?} label should be capitalised: {:?}",
+            prim,
+            label
         );
     }
 }
@@ -1242,7 +1351,9 @@ fn test_abi_all_primitives_valid_arity() {
         let arity = prim.arity();
         assert!(
             arity == 1 || arity == 2,
-            "{:?} has invalid arity {}: must be 1 or 2", prim, arity
+            "{:?} has invalid arity {}: must be 1 or 2",
+            prim,
+            arity
         );
     }
 }
@@ -1263,15 +1374,14 @@ fn test_abi_pattern_to_primitive_exhaustive() {
 
     for kind in &all_kinds {
         let prims = kind.primary_primitives();
-        assert!(
-            !prims.is_empty(),
-            "{:?} returned no primitives", kind
-        );
+        assert!(!prims.is_empty(), "{:?} returned no primitives", kind);
         // Every primitive in the list must be a valid BQNPrimitive.
         for prim in &prims {
             assert!(
                 !prim.glyph().is_empty(),
-                "{:?} -> {:?} has empty glyph", kind, prim
+                "{:?} -> {:?} has empty glyph",
+                kind,
+                prim
             );
         }
     }
@@ -1318,18 +1428,32 @@ fn test_abi_array_pattern_field_preservation() {
 
     for entry in &entries {
         let pat = pattern_from_entry(entry);
-        assert_eq!(pat.name, entry.name, "Name not preserved for {}", entry.name);
-        assert_eq!(pat.input_type, entry.input_type, "input_type not preserved for {}", entry.name);
-        assert_eq!(pat.output_type, entry.output_type, "output_type not preserved for {}", entry.name);
+        assert_eq!(
+            pat.name, entry.name,
+            "Name not preserved for {}",
+            entry.name
+        );
+        assert_eq!(
+            pat.input_type, entry.input_type,
+            "input_type not preserved for {}",
+            entry.name
+        );
+        assert_eq!(
+            pat.output_type, entry.output_type,
+            "output_type not preserved for {}",
+            entry.name
+        );
         assert_eq!(
             pat.kind,
             source_pattern_to_kind(&entry.source_pattern),
-            "kind not correct for {}", entry.name
+            "kind not correct for {}",
+            entry.name
         );
         assert_eq!(
             pat.primitives,
             pat.kind.primary_primitives(),
-            "primitives mismatch for {}", entry.name
+            "primitives mismatch for {}",
+            entry.name
         );
     }
 }
@@ -1344,11 +1468,13 @@ fn test_abi_primitive_display_trait() {
     let display = format!("{}", prim);
     assert!(
         display.contains("Grade Up"),
-        "Display should include label: got {:?}", display
+        "Display should include label: got {:?}",
+        display
     );
     assert!(
         display.contains("\u{234B}"),
-        "Display should include glyph: got {:?}", display
+        "Display should include glyph: got {:?}",
+        display
     );
 }
 
@@ -1360,7 +1486,10 @@ fn test_abi_primitive_display_trait() {
 fn test_abi_source_pattern_display() {
     assert_eq!(format!("{}", SourcePattern::LoopSum), "loop-sum");
     assert_eq!(format!("{}", SourcePattern::MapTransform), "map-transform");
-    assert_eq!(format!("{}", SourcePattern::FilterPredicate), "filter-predicate");
+    assert_eq!(
+        format!("{}", SourcePattern::FilterPredicate),
+        "filter-predicate"
+    );
     assert_eq!(format!("{}", SourcePattern::Sort), "sort");
     assert_eq!(format!("{}", SourcePattern::GroupBy), "group-by");
 }
@@ -1389,7 +1518,9 @@ fn test_abi_all_glyphs_unique() {
         let glyph = prim.glyph();
         assert!(
             seen.insert(glyph),
-            "Duplicate glyph {:?} for {:?}", glyph, prim
+            "Duplicate glyph {:?} for {:?}",
+            glyph,
+            prim
         );
     }
 }
@@ -1418,7 +1549,10 @@ fn test_abi_ffi_c_type_mapping() {
         // LoopSum returns a scalar of the element type.
         assert!(
             header.contains(expected_c),
-            "Input type {} should map to C type {} in header:\n{}", rust_ty, expected_c, header
+            "Input type {} should map to C type {} in header:\n{}",
+            rust_ty,
+            expected_c,
+            header
         );
     }
 }
@@ -1437,7 +1571,8 @@ fn test_abi_unoptimised_sort_body() {
     // Unoptimised sort should use the two-step form with a `perm` intermediate.
     assert!(
         bqn.contains("perm"),
-        "Unoptimised sort should use 'perm' intermediate variable: got:\n{}", bqn
+        "Unoptimised sort should use 'perm' intermediate variable: got:\n{}",
+        bqn
     );
 }
 
@@ -1508,7 +1643,8 @@ optimize = true
             .unwrap_or_else(|e| panic!("Failed to parse source-pattern '{}': {}", toml_name, e));
         assert_eq!(
             m.patterns[0].source_pattern, *expected,
-            "source-pattern '{}' should deserialise to {:?}", toml_name, expected
+            "source-pattern '{}' should deserialise to {:?}",
+            toml_name, expected
         );
     }
 }
@@ -1541,7 +1677,10 @@ optimize = true
 "#;
     std::fs::write(&manifest_path, toml_content).unwrap();
 
-    let result = bqniser::generate(manifest_path.to_str().unwrap(), output_dir.to_str().unwrap());
+    let result = bqniser::generate(
+        manifest_path.to_str().unwrap(),
+        output_dir.to_str().unwrap(),
+    );
     assert!(result.is_ok(), "Spaces in project name: {:?}", result.err());
 
     // Spaces in project name become underscores in filename.
