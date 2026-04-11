@@ -1,65 +1,27 @@
-;; SPDX-License-Identifier: PMPL-1.0-or-later
-;; Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
-;; META.a2ml — Meta-level information for bqniser
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# META.a2ml — Bqniser meta-level information
+[metadata]
+version = "0.1.0"
+last-updated = "2026-03-21"
 
-(meta
-  (version "0.1.0")
-  (last-updated "2026-03-21")
+[project-info]
+license = "PMPL-1.0-or-later"
+author = "Jonathan D.A. Jewell (hyperpolymath)"
 
-  (architecture-decisions
-    (adr "001-iser-pattern"
-      (status "accepted")
-      (context "Need to make BQN array primitives accessible without learning APL syntax")
-      (decision "Use manifest-driven code generation: user describes WHAT, tool detects patterns and generates BQN")
-      (consequences "Users write zero BQN; all array optimisation complexity is in bqniser"))
+[architecture-decisions]
+decisions = [
+  # No ADRs recorded
+]
 
-    (adr "002-abi-ffi-standard"
-      (status "accepted")
-      (context "Need verified interop between Rust CLI, CBQN runtime, and user code")
-      (decision "Idris2 ABI for formal proofs (BQN types, array layout, rewrite equivalence), Zig FFI for CBQN C-ABI bridge")
-      (consequences "Compile-time correctness guarantees; every rewrite has a proof; zero runtime overhead from proofs"))
+[development-practices]
+versioning = "SemVer"
+documentation = "AsciiDoc"
+build-tool = "just"
 
-    (adr "003-cbqn-runtime"
-      (status "accepted")
-      (context "Need a performant BQN execution engine with C FFI")
-      (decision "Target CBQN (dzaima/CBQN) as the BQN runtime via its bqnffi.h C API")
-      (consequences "In-process BQN evaluation; no serialisation overhead; vectorised SIMD execution"))
-
-    (adr "004-pattern-conservative"
-      (status "accepted")
-      (context "Incorrect rewrites would produce wrong results silently")
-      (decision "Only emit BQN rewrites when (a) pattern confidence is high AND (b) Idris2 equivalence proof exists")
-      (consequences "False negatives preferred over false positives; users trust the output"))
-
-    (adr "005-leading-axis-theory"
-      (status "accepted")
-      (context "BQN primitives generalise across array ranks via leading-axis theory")
-      (decision "BQNiser leverages rank polymorphism: a single rewrite handles scalars, lists, tables, and higher-rank arrays")
-      (consequences "Fewer pattern rules needed; rewrites are more general than dimension-specific alternatives"))
-
-    (adr "006-rsr-template"
-      (status "accepted")
-      (context "Need consistent project structure across 29+ -iser repos")
-      (decision "All repos cloned from rsr-template-repo with full CI/CD and governance")
-      (consequences "17 workflows, SECURITY.md, CONTRIBUTING, bot directives from day one")))
-
-  (development-practices
-    (language "Rust" (purpose "CLI, manifest parsing, pattern detection, orchestration"))
-    (language "BQN" (purpose "Target language for generated array expressions"))
-    (language "Idris2" (purpose "ABI formal proofs: types, layout, equivalence"))
-    (language "Zig" (purpose "FFI C-ABI bridge to CBQN runtime"))
-    (build-tool "cargo" (purpose "Rust CLI"))
-    (build-tool "zig build" (purpose "FFI bridge"))
-    (ci "GitHub Actions (17 workflows)"))
-
-  (design-rationale
-    (principle "Manifest-driven"
-      (explanation "User intent captured in bqniser.toml; pattern detection is automatic; generation is deterministic"))
-    (principle "Formally verified rewrites"
-      (explanation "Idris2 dependent types prove each BQN rewrite preserves input-output equivalence"))
-    (principle "Rank-polymorphic by default"
-      (explanation "BQN's leading-axis theory means primitives generalise across dimensions automatically"))
-    (principle "Conservative rewriting"
-      (explanation "Only rewrite when confidence is high and equivalence proof exists; never silently produce wrong results"))
-    (principle "In-process execution"
-      (explanation "CBQN runs in-process via Zig FFI; no IPC, no serialisation, no subprocess overhead"))))
+[maintenance-axes]
+scoping-first = true
+axis-1 = "must > intend > like"
+axis-2 = "corrective > adaptive > perfective"
+axis-3 = "systems > compliance > effects"
