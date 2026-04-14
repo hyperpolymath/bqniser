@@ -2,6 +2,8 @@
 # bqniser — array pattern detection and BQN primitive rewriting
 
 # Default: build and test
+import? "contractile.just"
+
 default: build test
 
 # Build release binary
