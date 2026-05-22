@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //
 // Integration tests for bqniser Phase 1.
@@ -223,7 +223,7 @@ fn test_bqn_generation() {
     assert!(bqn_source.contains("test-project"));
 
     // Should have SPDX header.
-    assert!(bqn_source.contains("PMPL-1.0-or-later"));
+    assert!(bqn_source.contains("MPL-2.0"));
 
     // Should have an export namespace.
     assert!(bqn_source.contains("bqniser"));
@@ -249,7 +249,7 @@ fn test_ffi_generation() {
     assert!(header.contains("size_t"));
 
     // Zig implementation checks.
-    assert!(zig.contains("PMPL-1.0-or-later"));
+    assert!(zig.contains("MPL-2.0"));
     assert!(zig.contains("cbqn.h"));
     assert!(zig.contains("bqniser_init"));
     assert!(zig.contains("bqniser_cleanup"));
@@ -1088,7 +1088,7 @@ fn test_aspect_bqn_spdx_header() {
         let bqn = generate_bqn(&program).unwrap();
 
         assert!(
-            bqn.contains("SPDX-License-Identifier: PMPL-1.0-or-later"),
+            bqn.contains("SPDX-License-Identifier: MPL-2.0"),
             "BQN file for {} missing SPDX header",
             name
         );
@@ -1141,7 +1141,7 @@ fn test_aspect_c_header_abi_declarations() {
 
     // SPDX header.
     assert!(
-        header.contains("SPDX-License-Identifier: PMPL-1.0-or-later"),
+        header.contains("SPDX-License-Identifier: MPL-2.0"),
         "C header missing SPDX"
     );
 
@@ -1174,7 +1174,7 @@ fn test_aspect_zig_ffi_structure() {
 
     // SPDX header.
     assert!(
-        zig.contains("SPDX-License-Identifier: PMPL-1.0-or-later"),
+        zig.contains("SPDX-License-Identifier: MPL-2.0"),
         "Zig FFI missing SPDX"
     );
 
