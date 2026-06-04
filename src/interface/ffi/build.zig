@@ -1,10 +1,10 @@
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 // BQNiser FFI Build Configuration
 //
 // Builds the Zig FFI bridge to the CBQN runtime as both shared and static
 // libraries.  When CBQN is available as a system library, link it here.
 //
-// SPDX-License-Identifier: MPL-2.0
-// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 
 const std = @import("std");
 
