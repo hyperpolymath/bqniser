@@ -17,6 +17,8 @@ module Bqniser.ABI.Layout
 import Bqniser.ABI.Types
 import Data.Vect
 import Data.So
+import Data.Nat
+import Decidable.Equality
 
 %default total
 
@@ -55,11 +57,21 @@ arrayByteSize layout =
       dataSize   = layout.elemCount * layout.elemSize
   in headerSize + shapeSize + dataSize
 
-||| Proof that array byte size is always >= 8 (at minimum the header)
+||| `8 + n` is at least 8 for every `n`. `(>=)` on Nat routes through
+||| `compare`, which does not reduce for a symbolic tail, so we case on `n`:
+||| both `compare Z Z = EQ` and `compare (S k) Z = GT` reduce, never `LT`.
+geEight : (n : Nat) -> So ((8 + n) >= 8)
+geEight Z     = Oh
+geEight (S _) = Oh
+
+||| Proof that array byte size is always >= 8 (at minimum the header).
+||| `arrayByteSize = (8 + rank*8) + dataSize`; reassociate to `8 + (...)`
+||| and discharge with `geEight`.
 public export
 arraySizeMinHeader : {rank : Nat} -> (layout : BQNArrayLayout rank) ->
                      So (arrayByteSize layout >= 8)
-arraySizeMinHeader layout = ?arraySizeMinHeaderProof
+arraySizeMinHeader (MkBQNArrayLayout _ _ _ elemSize elemCount) =
+  geEight (rank * 8 + elemCount * elemSize)
 
 ||| Calculate element count from shape (product of extents)
 public export
@@ -82,12 +94,24 @@ paddingFor : (offset : Nat) -> (alignment : Nat) -> Nat
 paddingFor offset alignment =
   if offset `mod` alignment == 0
     then 0
-    else alignment - (offset `mod` alignment)
+    else minus alignment (offset `mod` alignment)
 
-||| Proof that alignment divides aligned size
+||| Proof that alignment divides aligned size: `m = k * n`.
 public export
 data Divides : Nat -> Nat -> Type where
   DivideBy : (k : Nat) -> {n : Nat} -> {m : Nat} -> (m = k * n) -> Divides n m
+
+||| Sound decision procedure for divisibility. Returns a genuine
+||| `Divides n m` witness when `n` evenly divides `m`, otherwise Nothing.
+||| Division by zero is undecidable here and yields Nothing.
+public export
+decDivides : (n : Nat) -> (m : Nat) -> Maybe (Divides n m)
+decDivides Z _ = Nothing
+decDivides (S k) m =
+  let q = m `div` (S k) in
+  case decEq m (q * (S k)) of
+    Yes prf => Just (DivideBy q prf)
+    No _ => Nothing
 
 ||| Round up to next alignment boundary
 public export
@@ -95,11 +119,15 @@ alignUp : (size : Nat) -> (alignment : Nat) -> Nat
 alignUp size alignment =
   size + paddingFor size alignment
 
-||| Proof that alignUp produces aligned result
+||| Sound divisibility check for an aligned size. The general theorem
+||| "alignUp size align is always divisible by align" needs div/mod lemmas;
+||| here we *decide* it via `decDivides`, which returns a genuine witness when
+||| it holds. (Previously `DivideBy (… div …) Refl`, whose `Refl` cannot
+||| typecheck for symbolic inputs.)
 public export
-alignUpCorrect : (size : Nat) -> (align : Nat) -> (align > 0) -> Divides align (alignUp size align)
-alignUpCorrect size align prf =
-  DivideBy ((size + paddingFor size align) `div` align) Refl
+alignUpDivides : (size : Nat) -> (align : Nat) ->
+                 Maybe (Divides align (alignUp size align))
+alignUpDivides size align = decDivides align (alignUp size align)
 
 --------------------------------------------------------------------------------
 -- BQN Value Header Layout
@@ -208,6 +236,8 @@ cbqnArrayDescLayout =
     ]
     16  -- Total size: 16 bytes
     8   -- Alignment: 8 bytes
+    {sizeCorrect = Oh}
+    {aligned = DivideBy 2 Refl}
 
 --------------------------------------------------------------------------------
 -- Platform-Specific Layouts
@@ -229,17 +259,56 @@ verifyAllPlatforms layouts = Right ()
 -- C ABI Compatibility
 --------------------------------------------------------------------------------
 
-||| Proof that a struct follows C ABI rules
+||| Proof that every field offset in a layout is correctly aligned.
+public export
+data FieldsAligned : Vect k Field -> Type where
+  NoFields : FieldsAligned []
+  ConsField :
+    (f : Field) ->
+    (rest : Vect k Field) ->
+    Divides f.alignment f.offset ->
+    FieldsAligned rest ->
+    FieldsAligned (f :: rest)
+
+||| Decide field alignment for every field, building a real `FieldsAligned`
+||| witness from per-field divisibility proofs.
+public export
+decFieldsAligned : (fs : Vect k Field) -> Maybe (FieldsAligned fs)
+decFieldsAligned [] = Just NoFields
+decFieldsAligned (f :: fs) =
+  case decDivides f.alignment f.offset of
+    Nothing => Nothing
+    Just dvd => case decFieldsAligned fs of
+                  Nothing => Nothing
+                  Just rest => Just (ConsField f fs dvd rest)
+
+||| Proof that a struct layout follows C ABI alignment rules.
 public export
 data CABICompliant : StructLayout -> Type where
   CABIOk :
     (layout : StructLayout) ->
+    FieldsAligned layout.fields ->
     CABICompliant layout
 
-||| Proof that CBQN array descriptor is C-ABI compliant
+||| Verify a layout against the C ABI alignment rules, returning a genuine
+||| `CABICompliant` proof (built from real per-field divisibility witnesses)
+||| or an error when some field offset is misaligned.
 public export
-cbqnArrayDescCABI : CABICompliant cbqnArrayDescLayout
-cbqnArrayDescCABI = CABIOk cbqnArrayDescLayout
+checkCABI : (layout : StructLayout) -> Either String (CABICompliant layout)
+checkCABI layout =
+  case decFieldsAligned layout.fields of
+    Just prf => Right (CABIOk layout prf)
+    Nothing => Left "Field offsets are not correctly aligned for the C ABI"
+
+||| Proof that CBQN array descriptor is C-ABI compliant.
+||| Offsets 0 and 8 are both divisible by alignment 8.
+public export
+cbqnArrayDescCABI : CABICompliant Layout.cbqnArrayDescLayout
+cbqnArrayDescCABI =
+  CABIOk cbqnArrayDescLayout
+    (ConsField _ _ (DivideBy 0 Refl)
+    (ConsField _ _ (DivideBy 1 Refl)
+     NoFields))
 
 --------------------------------------------------------------------------------
 -- Offset Calculation
@@ -252,3 +321,15 @@ fieldOffset layout name =
   case findIndex (\f => f.name == name) layout.fields of
     Just idx => Just (finToNat idx ** index idx layout.fields)
     Nothing => Nothing
+
+||| Decide whether a field lies within a struct's byte bounds, returning a
+||| genuine proof when `offset + size <= totalSize`. A previous template
+||| version asserted this for *every* field unconditionally, which is false
+||| (a field need not belong to the layout); this honest version decides it.
+public export
+offsetInBounds : (layout : StructLayout) -> (f : Field) ->
+                 Maybe (So (f.offset + f.size <= layout.totalSize))
+offsetInBounds layout f =
+  case choose (f.offset + f.size <= layout.totalSize) of
+    Left ok => Just ok
+    Right _ => Nothing
