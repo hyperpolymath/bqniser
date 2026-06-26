@@ -18,6 +18,7 @@ module Bqniser.ABI.Types
 import Data.Bits
 import Data.So
 import Data.Vect
+import Decidable.Equality
 
 %default total
 
@@ -32,9 +33,7 @@ data Platform = Linux | Windows | MacOS | BSD | WASM
 ||| Compile-time platform detection
 public export
 thisPlatform : Platform
-thisPlatform =
-  %runElab do
-    pure Linux  -- Default; override with compiler flags
+thisPlatform = Linux  -- Default; override with compiler flags
 
 --------------------------------------------------------------------------------
 -- BQN Array Rank
@@ -60,7 +59,8 @@ data ArrayRank : Nat -> Type where
 ||| Proof that every ArrayRank has a non-negative rank (trivially true for Nat)
 public export
 rankNonNeg : {r : Nat} -> ArrayRank r -> (r >= 0 = True)
-rankNonNeg _ = Refl
+rankNonNeg {r = Z}   _ = Refl
+rankNonNeg {r = S _} _ = Refl
 
 --------------------------------------------------------------------------------
 -- BQN Primitives
@@ -95,6 +95,7 @@ data BQNPrimitive : Type where
 ||| Decidable equality for BQN primitives
 public export
 DecEq BQNPrimitive where
+  -- Diagonal: identical nullary constructors.
   decEq Join Join = Yes Refl
   decEq Reverse Reverse = Yes Refl
   decEq GradeUp GradeUp = Yes Refl
@@ -103,7 +104,104 @@ DecEq BQNPrimitive where
   decEq Select Select = Yes Refl
   decEq Reshape Reshape = Yes Refl
   decEq Transpose Transpose = Yes Refl
-  decEq _ _ = No absurd
+  -- Diagonal: parametric constructors reduce to their Char field.
+  decEq (Arith g1) (Arith g2) = case decEq g1 g2 of
+    Yes Refl => Yes Refl
+    No contra => No (\case Refl => contra Refl)
+  decEq (Compare g1) (Compare g2) = case decEq g1 g2 of
+    Yes Refl => Yes Refl
+    No contra => No (\case Refl => contra Refl)
+  -- Off-diagonal: Join vs others
+  decEq Join Reverse = No (\case Refl impossible)
+  decEq Join GradeUp = No (\case Refl impossible)
+  decEq Join GradeDown = No (\case Refl impossible)
+  decEq Join Replicate = No (\case Refl impossible)
+  decEq Join Select = No (\case Refl impossible)
+  decEq Join Reshape = No (\case Refl impossible)
+  decEq Join Transpose = No (\case Refl impossible)
+  decEq Join (Arith _) = No (\case Refl impossible)
+  decEq Join (Compare _) = No (\case Refl impossible)
+  decEq Reverse Join = No (\case Refl impossible)
+  decEq Reverse GradeUp = No (\case Refl impossible)
+  decEq Reverse GradeDown = No (\case Refl impossible)
+  decEq Reverse Replicate = No (\case Refl impossible)
+  decEq Reverse Select = No (\case Refl impossible)
+  decEq Reverse Reshape = No (\case Refl impossible)
+  decEq Reverse Transpose = No (\case Refl impossible)
+  decEq Reverse (Arith _) = No (\case Refl impossible)
+  decEq Reverse (Compare _) = No (\case Refl impossible)
+  decEq GradeUp Join = No (\case Refl impossible)
+  decEq GradeUp Reverse = No (\case Refl impossible)
+  decEq GradeUp GradeDown = No (\case Refl impossible)
+  decEq GradeUp Replicate = No (\case Refl impossible)
+  decEq GradeUp Select = No (\case Refl impossible)
+  decEq GradeUp Reshape = No (\case Refl impossible)
+  decEq GradeUp Transpose = No (\case Refl impossible)
+  decEq GradeUp (Arith _) = No (\case Refl impossible)
+  decEq GradeUp (Compare _) = No (\case Refl impossible)
+  decEq GradeDown Join = No (\case Refl impossible)
+  decEq GradeDown Reverse = No (\case Refl impossible)
+  decEq GradeDown GradeUp = No (\case Refl impossible)
+  decEq GradeDown Replicate = No (\case Refl impossible)
+  decEq GradeDown Select = No (\case Refl impossible)
+  decEq GradeDown Reshape = No (\case Refl impossible)
+  decEq GradeDown Transpose = No (\case Refl impossible)
+  decEq GradeDown (Arith _) = No (\case Refl impossible)
+  decEq GradeDown (Compare _) = No (\case Refl impossible)
+  decEq Replicate Join = No (\case Refl impossible)
+  decEq Replicate Reverse = No (\case Refl impossible)
+  decEq Replicate GradeUp = No (\case Refl impossible)
+  decEq Replicate GradeDown = No (\case Refl impossible)
+  decEq Replicate Select = No (\case Refl impossible)
+  decEq Replicate Reshape = No (\case Refl impossible)
+  decEq Replicate Transpose = No (\case Refl impossible)
+  decEq Replicate (Arith _) = No (\case Refl impossible)
+  decEq Replicate (Compare _) = No (\case Refl impossible)
+  decEq Select Join = No (\case Refl impossible)
+  decEq Select Reverse = No (\case Refl impossible)
+  decEq Select GradeUp = No (\case Refl impossible)
+  decEq Select GradeDown = No (\case Refl impossible)
+  decEq Select Replicate = No (\case Refl impossible)
+  decEq Select Reshape = No (\case Refl impossible)
+  decEq Select Transpose = No (\case Refl impossible)
+  decEq Select (Arith _) = No (\case Refl impossible)
+  decEq Select (Compare _) = No (\case Refl impossible)
+  decEq Reshape Join = No (\case Refl impossible)
+  decEq Reshape Reverse = No (\case Refl impossible)
+  decEq Reshape GradeUp = No (\case Refl impossible)
+  decEq Reshape GradeDown = No (\case Refl impossible)
+  decEq Reshape Replicate = No (\case Refl impossible)
+  decEq Reshape Select = No (\case Refl impossible)
+  decEq Reshape Transpose = No (\case Refl impossible)
+  decEq Reshape (Arith _) = No (\case Refl impossible)
+  decEq Reshape (Compare _) = No (\case Refl impossible)
+  decEq Transpose Join = No (\case Refl impossible)
+  decEq Transpose Reverse = No (\case Refl impossible)
+  decEq Transpose GradeUp = No (\case Refl impossible)
+  decEq Transpose GradeDown = No (\case Refl impossible)
+  decEq Transpose Replicate = No (\case Refl impossible)
+  decEq Transpose Select = No (\case Refl impossible)
+  decEq Transpose Reshape = No (\case Refl impossible)
+  decEq Transpose (Arith _) = No (\case Refl impossible)
+  decEq Transpose (Compare _) = No (\case Refl impossible)
+  decEq (Arith _) Join = No (\case Refl impossible)
+  decEq (Arith _) Reverse = No (\case Refl impossible)
+  decEq (Arith _) GradeUp = No (\case Refl impossible)
+  decEq (Arith _) GradeDown = No (\case Refl impossible)
+  decEq (Arith _) Replicate = No (\case Refl impossible)
+  decEq (Arith _) Select = No (\case Refl impossible)
+  decEq (Arith _) Reshape = No (\case Refl impossible)
+  decEq (Arith _) Transpose = No (\case Refl impossible)
+  decEq (Arith _) (Compare _) = No (\case Refl impossible)
+  decEq (Compare _) Join = No (\case Refl impossible)
+  decEq (Compare _) Reverse = No (\case Refl impossible)
+  decEq (Compare _) GradeUp = No (\case Refl impossible)
+  decEq (Compare _) GradeDown = No (\case Refl impossible)
+  decEq (Compare _) Replicate = No (\case Refl impossible)
+  decEq (Compare _) Select = No (\case Refl impossible)
+  decEq (Compare _) Reshape = No (\case Refl impossible)
+  decEq (Compare _) Transpose = No (\case Refl impossible)
+  decEq (Compare _) (Arith _) = No (\case Refl impossible)
 
 --------------------------------------------------------------------------------
 -- BQN Modifiers (1-modifiers and 2-modifiers)
@@ -231,7 +329,36 @@ DecEq Result where
   decEq OutOfMemory OutOfMemory = Yes Refl
   decEq NullPointer NullPointer = Yes Refl
   decEq EvalError EvalError = Yes Refl
-  decEq _ _ = No absurd
+  decEq Ok Error = No (\case Refl impossible)
+  decEq Ok InvalidParam = No (\case Refl impossible)
+  decEq Ok OutOfMemory = No (\case Refl impossible)
+  decEq Ok NullPointer = No (\case Refl impossible)
+  decEq Ok EvalError = No (\case Refl impossible)
+  decEq Error Ok = No (\case Refl impossible)
+  decEq Error InvalidParam = No (\case Refl impossible)
+  decEq Error OutOfMemory = No (\case Refl impossible)
+  decEq Error NullPointer = No (\case Refl impossible)
+  decEq Error EvalError = No (\case Refl impossible)
+  decEq InvalidParam Ok = No (\case Refl impossible)
+  decEq InvalidParam Error = No (\case Refl impossible)
+  decEq InvalidParam OutOfMemory = No (\case Refl impossible)
+  decEq InvalidParam NullPointer = No (\case Refl impossible)
+  decEq InvalidParam EvalError = No (\case Refl impossible)
+  decEq OutOfMemory Ok = No (\case Refl impossible)
+  decEq OutOfMemory Error = No (\case Refl impossible)
+  decEq OutOfMemory InvalidParam = No (\case Refl impossible)
+  decEq OutOfMemory NullPointer = No (\case Refl impossible)
+  decEq OutOfMemory EvalError = No (\case Refl impossible)
+  decEq NullPointer Ok = No (\case Refl impossible)
+  decEq NullPointer Error = No (\case Refl impossible)
+  decEq NullPointer InvalidParam = No (\case Refl impossible)
+  decEq NullPointer OutOfMemory = No (\case Refl impossible)
+  decEq NullPointer EvalError = No (\case Refl impossible)
+  decEq EvalError Ok = No (\case Refl impossible)
+  decEq EvalError Error = No (\case Refl impossible)
+  decEq EvalError InvalidParam = No (\case Refl impossible)
+  decEq EvalError OutOfMemory = No (\case Refl impossible)
+  decEq EvalError NullPointer = No (\case Refl impossible)
 
 --------------------------------------------------------------------------------
 -- Opaque Handles
@@ -247,8 +374,10 @@ data Handle : Type where
 ||| Returns Nothing if pointer is null.
 public export
 createHandle : Bits64 -> Maybe Handle
-createHandle 0 = Nothing
-createHandle ptr = Just (MkHandle ptr)
+createHandle ptr =
+  case choose (ptr /= 0) of
+    Left ok => Just (MkHandle ptr {nonNull = ok})
+    Right _ => Nothing
 
 ||| Extract pointer value from handle.
 public export
