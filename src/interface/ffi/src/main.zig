@@ -191,8 +191,14 @@ export fn bqniser_call2(handle: ?*anyopaque, f: BQNV, w: BQNV, x: BQNV) BQNV {
 
 /// Get the type tag of a CBQN value.
 export fn bqniser_type(handle: ?*anyopaque, val: BQNV) u32 {
-    const h = castHandle(handle) orelse return 0;
-    if (!h.initialized) return 0;
+    const h = castHandle(handle) orelse {
+        setError("Null handle in bqniser_type");
+        return 0;
+    };
+    if (!h.initialized) {
+        setError("Handle not initialized");
+        return 0;
+    }
     _ = val;
     // TODO: return @intCast(bqn_type(val))
     return 0;
@@ -200,8 +206,14 @@ export fn bqniser_type(handle: ?*anyopaque, val: BQNV) u32 {
 
 /// Get the element count (bound) of a BQN array.
 export fn bqniser_bound(handle: ?*anyopaque, val: BQNV) u64 {
-    const h = castHandle(handle) orelse return 0;
-    if (!h.initialized) return 0;
+    const h = castHandle(handle) orelse {
+        setError("Null handle in bqniser_bound");
+        return 0;
+    };
+    if (!h.initialized) {
+        setError("Handle not initialized");
+        return 0;
+    }
     _ = val;
     // TODO: return bqn_bound(val)
     return 0;
@@ -230,8 +242,14 @@ export fn bqniser_read_f64_arr(handle: ?*anyopaque, val: BQNV, buf: BQNV) Result
 
 /// Extract a scalar f64 from a BQN numeric value.
 export fn bqniser_to_f64(handle: ?*anyopaque, val: BQNV) f64 {
-    const h = castHandle(handle) orelse return 0.0;
-    if (!h.initialized) return 0.0;
+    const h = castHandle(handle) orelse {
+        setError("Null handle in bqniser_to_f64");
+        return 0.0;
+    };
+    if (!h.initialized) {
+        setError("Handle not initialized");
+        return 0.0;
+    }
     _ = val;
     // TODO: return bqn_toF64(val)
     return 0.0;
