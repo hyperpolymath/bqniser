@@ -9,3 +9,4 @@ modules = Bqniser.ABI.Types
         , Bqniser.ABI.Layout
         , Bqniser.ABI.Foreign
         , Bqniser.ABI.Proofs
+        , Bqniser.ABI.Semantics
