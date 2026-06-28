@@ -12,3 +12,4 @@ modules = Bqniser.ABI.Types
         , Bqniser.ABI.Semantics
         , Bqniser.ABI.Invariants
         , Bqniser.ABI.FfiSeam
+        , Bqniser.ABI.Capstone
