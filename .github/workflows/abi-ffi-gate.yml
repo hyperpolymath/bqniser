@@ -21,7 +21,7 @@ jobs:
     name: ABI ↔ FFI structural conformance
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.4.0
+      - uses: actions/checkout@v7.0.1
       - name: Run ABI-FFI gate
         run: python3 scripts/abi-ffi-gate.py
 
@@ -29,7 +29,7 @@ jobs:
     name: Zig FFI builds + tests (Zig 0.14.0)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.4.0
+      - uses: actions/checkout@v7.0.1
       - name: Install Zig 0.14.0
         run: |
           curl -fsSL https://ziglang.org/download/0.14.0/zig-linux-x86_64-0.14.0.tar.xz -o /tmp/zig.tar.xz
